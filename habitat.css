@@ -158,3 +158,4 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--amber);outline-offs
 .phead{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:10px}.phead .pic{font-size:22px}.phead small{color:var(--mut)}
 .folk{display:flex;flex-direction:column;gap:10px}.resident{display:flex;gap:10px;align-items:center}.resident .av{width:46px;height:46px;flex:none}
 @media(prefers-reduced-motion:no-preference){.bob{animation:bob 3.2s ease-in-out infinite}@keyframes bob{50%{transform:translateY(-4px)}}}
+@media(min-width:900px){.mcard.gk{grid-column:span 2}}

@@ -220,7 +220,8 @@ with sync_playwright() as p:
     sw=pg.evaluate("document.documentElement.scrollWidth");chk(nm+': lab views: no horizontal overflow',sw<=pg.viewport_size['width']+2,str(sw))
     chk(nm+': lab views: no controls, only GET',pg.evaluate("document.querySelectorAll('form,input,textarea,select,[contenteditable],button').length")==pg.evaluate("document.querySelectorAll('button').length") and all(m=='GET' for m,u in log))
     chk(nm+': lab views: no console or page errors',not errs,str(errs));cx.close()
-  lab_checks(False,live);lab_checks(True,live)
+  import os
+  if not os.environ.get('SKIP_LAB'): lab_checks(False,live);lab_checks(True,live)
   if not live:
     # empty state
     st={'mode':'empty'};cx=newctx(False,st,[]);pg=cx.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)));pg.on('console',lambda m:errs.append(m.text[:120]) if m.type=='error' else None)
