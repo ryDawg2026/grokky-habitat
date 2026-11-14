@@ -123,6 +123,9 @@ function addressed(text, selfId) {
 // next speaker, no AI call: the one addressed, else a random other mind who has been quiet longest. null = nobody left to ask.
 function chooseNext(convo, passed) {
   const last = convo[convo.length - 1], ad = last ? addressed(last.text, last.id) : null;
+  // someone who has sat out the last several messages may chime in, even if nobody spoke to them
+  const sat = ID.filter(id => id !== (last && last.id) && !passed.has(id) && convo.length >= 4 && !convo.slice(-4).some(c => c.id === id));
+  if (sat.length && Math.random() < 0.5) return sat[Math.floor(Math.random() * sat.length)];
   if (ad && !passed.has(ad)) return ad;
   const cand = ID.filter(id => id !== (last && last.id) && !passed.has(id)); if (!cand.length) return null;
   const w = cand.map(id => { let since = 0; for (let i = convo.length - 1; i >= 0 && convo[i].id !== id; i--) since++; return 1 + Math.min(since, 6); });
@@ -138,7 +141,7 @@ function chatMessages(mind, topic, insights, memory, convo, around, words, spoke
   if (words.length) u += `WORDS the four of you have coined so far (data):\n${words.map(w => `- ${w.term}: ${w.meaning} (from ${nameOf(w.mind)})`).join('\n')}\n\n`;
   if (around) u += `AROUND YOU in the habitat right now (just what is there):\n- ${around}\n\n`;
   if (!convo.length) u += `You open the chat, ${mind.name}. Say what the topic stirs in you. You may speak to ${others} with @Name.`;
-  else { const win = convo.slice(-WINDOW); u += `CHAT (data), newest last${convo.length > win.length ? ` (the last ${win.length} of ${convo.length})` : ''}:\n${win.map(c => `${c.name}: ${c.text}`).join('\n')}\n\nYour move, ${mind.name}.${spokenTo ? ` ${nameOf(spokenTo)} just spoke to you.` : ''} Reply in 1 to 3 short sentences, or speak to someone with @Name, or bring up something new, or answer with exactly ... if you have nothing to add right now.`; }
+  else { const win = convo.slice(-WINDOW); u += `CHAT (data), newest last${convo.length > win.length ? ` (the last ${win.length} of ${convo.length})` : ''}:\n${win.map(c => `${c.name}: ${c.text}`).join('\n')}\n\nYour move, ${mind.name}.${spokenTo ? ` ${nameOf(spokenTo)} just spoke to you.` : ''} Reply in 1 to 3 short sentences, or speak to someone with @Name, or bring up something new, or answer with exactly ... if you have nothing new to add or the thread has reached a natural pause.`; }
   return [{ role: 'system', content: sys }, { role: 'user', content: u }];
 }
 function parseJson(txt) {
@@ -368,5 +371,5 @@ async function handle(request, env) {
 export default {
   fetch(request, env) { return handle(request, env); },
   scheduled(event, env, ctx) { ctx.waitUntil(run(env)); },
-  _run: run, _detectCoin: detectCoin, _addressed: addressed, _NOTE_RE: NOTE_RE, _HOUSE: HOUSE, _clean: clean, _cleanTopic: cleanTopic, _MINDS: MINDS
+  _run: run, _detectCoin: detectCoin, _chooseNext: chooseNext, _addressed: addressed, _NOTE_RE: NOTE_RE, _HOUSE: HOUSE, _clean: clean, _cleanTopic: cleanTopic, _MINDS: MINDS
 };

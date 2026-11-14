@@ -45,6 +45,10 @@ await W._run(env);chk('round 2 prompts carry each mind’s memory, the shared in
 chk('the minds are never told to use the words or to coin any',!/(you must|please|should) (?:use|coin|invent)|use the words|coin (?:a|new) /i.test(seen));
 chk('round 2 picked one of the minds’ own topics (unvisited first)',db.prepare('select count(*) n from topics where visits>0').get().n>=2);
 const lx2=db.prepare("select uses from lexicon where term='plankword'").get();chk('lexicon: uses keep growing across rounds',lx2.uses>pw.uses,JSON.stringify([pw.uses,lx2.uses]));
+// fairness: a mind that has sat out several messages can chime in, but never one who just stayed silent
+{const cv=[0,1,2,3,4,5].map(i=>({idx:i,id:i%2?'bram':'pip',name:i%2?'Bram':'Pip',text:(i%2?'@Pip':'@Bram')+' go on'}));let hit={wren:0,pip:0,bram:0,lumen:0};for(let i=0;i<400;i++)hit[W._chooseNext(cv,new Set())]++;
+ chk('chat: a mind not addressed for a while sometimes chimes in; the addressed mind still usually answers',(hit.wren+hit.lumen)>80&&hit.pip>100,JSON.stringify(hit));
+ let bad=0;for(let i=0;i<200;i++){const x=W._chooseNext(cv,new Set(['wren','lumen']));if(x==='wren'||x==='lumen')bad++}chk('chat: a mind that just stayed silent is not asked again straight away',bad===0);}
 // quiet chat: ends early when two minds in a row stay silent
 const eq=mkEnv({NOTE_CHANCE:'0'});eq.__quiet=true;const rq=await W._run(eq);
 chk('quiet chat: opener speaks, two silences end it (dynamic end), still saved',rq.ok&&rq.H.turns===1&&rq.H.ended==='quiet'&&eq.__calls()===3&&cntOf(eq,'turns')===1&&cntOf(eq,'insights')===0,JSON.stringify(rq.H));
