@@ -9,9 +9,9 @@ def chk(n,c,i=''):
   print(('PASS' if c else 'FAIL'),n,i if not c else '')
   if not c: ok=False
 def iso(ago): return time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime(time.time()-ago))
-M=[('wren','Wren'),('pip','Pip'),('lumen','Lumen'),('bram','Bram')]
+M=[('wren','Wren'),('pip','Pip'),('lumen','Lumen'),('bram','Bram'),('grokky','Grokky')]
 def rnd(i,topic,ago,live=False):
-  T=[('wren','Pip, I think %s begins with careful definitions.'%topic[:20],None),('pip','@Wren but what if we go past the definitions? Let us call it \u201cedgeword\u201d for the far side of the map!',0),('lumen','@Pip the water remembers both, friends: the known and the not-yet-imagined. edgeword fits.',1),('bram','@Lumen lovely, but how would we test any of it? Let us build one small bridge. <img src=x onerror="window.__xss=1"> <script>window.__xss=2</script>',2),('wren','Bram, a bridge is a definition you can walk on. edgeword again, then.',3),('pip','Wren, yes! \u2234 plankword for a tiny test? Count me in.',4)]
+  T=[('wren','Pip, I think %s begins with careful definitions.'%topic[:20],None),('pip','@Wren but what if we go past the definitions? Let us call it \u201cedgeword\u201d for the far side of the map!',0),('lumen','@Pip the water remembers both, friends: the known and the not-yet-imagined. edgeword fits.',1),('bram','@Lumen lovely, but how would we test any of it? Let us build one small bridge. <img src=x onerror="window.__xss=1"> <script>window.__xss=2</script>',2),('wren','Bram, a bridge is a definition you can walk on. edgeword again, then.',3),('grokky','Pip, @Wren, you are circling it, so jump! What if edgeword is the plank, not the edge? \u26a1',4)]
   turns=[{'mind':m,'text':t,'at':iso(ago-k*25),'reply':r} for k,(m,t,r) in enumerate(T)]
   return {'id':i,'at':iso(ago),'topic':topic,'title':'Bridges to the unknown %d'%i,'ended':None if live else ('quiet' if i%2 else 'cap'),'turns':turns,'insight':None if live else {'mind':None,'text':'A mind learns what it cannot yet imagine by building small bridges, then testing each plank together (round %d).'%i},'reflection':None if live else {'mind':'lumen','text':'The pool holds the sky and the stones at once.'}}
 ROUNDS=[rnd(3,'What counts as a good first bridge into the unknown?',200,True),rnd(2,'Can doubt be a kind of curiosity?',2000),rnd(1,'How can a mind learn something it cannot yet imagine?',4000)]
@@ -22,7 +22,7 @@ REF={'kind':'reflection','items':[{'id':100+i,'round':i,'at':iso(i*900),'mind':M
 TOP=[{'id':1,'name':'How can a mind learn something it cannot yet imagine?','parent':None,'visits':3,'at':iso(9000)}]
 for i in range(2,31): TOP.append({'id':i,'name':'Question number %d about the edge of the map?'%i,'parent':max(1,i//2) if i%5 else 1,'visits':(i%4),'at':iso(8000-i*100)})
 TOPICS={'total':len(TOP),'topics':TOP}
-MINDS_={'minds':[{'id':i,'name':n,'turns':12,'learnedCount':3,'journal':[{'round':3,'at':iso(300),'text':'I now see that careful definitions are bridges too, thanks to Bram (%s).'%n}]} for i,n in M]}
+MINDS_={'minds':[dict({'id':i,'name':n,'turns':12,'learnedCount':3,'journal':[{'round':3,'at':iso(300),'text':'I now see that careful definitions are bridges too, thanks to Bram (%s).'%n}]},**({'arrivedAt':iso(3000),'noticedBy':[{'mind':'pip','at':iso(2400),'round':3,'kind':'at','text':'@Grokky, where did you come from? <img src=x onerror="window.__xss=9">'},{'mind':'bram','at':iso(1200),'round':3,'kind':'name','text':'Grokky has a point, though I still want to test it.'}]} if i=='grokky' else {})) for i,n in M]}
 NOTE_NONE={'text':'How can this message be, and from who?','discovered':False,'first':None,'mentions':[],'mentionCount':0,'noticedBy':2}
 NOTE_FOUND={'text':'How can this message be, and from who?','discovered':True,'first':{'mind':'lumen','at':iso(1500),'round':2,'topic':'Can doubt be a kind of curiosity?','text':'I noticed this weathered note lying by the pool, and it stirs me, friends.'},'mentions':[{'mind':'pip','at':iso(600),'round':3,'text':'Lumen, that unsigned note: what if we follow where it came from? <img src=x onerror="window.__xss=3">'}],'mentionCount':4,'noticedBy':6}
 LEX={'total':2,'terms':[{'term':'edgeword','meaning':'the far side of the map, where our knowledge runs out','mind':'pip','round':3,'at':iso(900),'uses':5,'users':['wren','pip','lumen'],'lastUsedAt':iso(60)},{'term':'plankword','meaning':'a tiny test that bridges known and unknown','mind':'bram','round':2,'at':iso(300),'uses':0,'users':[],'lastUsedAt':None}]}
@@ -146,6 +146,15 @@ with sync_playwright() as p:
       chk(nm+': polls /feed on its own about every 20s and shows the new message',len([1 for m,u in log if '/feed' in u])>cnt0)
       chk(nm+': new messages do not yank the page away from what is being read',abs(y1-y0)<12,'%s -> %s'%(y0,y1))
       ROUNDS[0]['turns'].pop()
+    if not live:
+      chk(nm+': Grokky joins the chat with his own look (spark avatar, ⚡ glyph, accent bubble)',pg.evaluate("!!document.querySelector('.turn.chat.gk .av.spark') && /⚡/.test(document.querySelector('.turn.chat.gk .who').innerText)"))
+    pg.goto(url+'#/minds');pg.wait_for_function("document.querySelector('.mcard')",timeout=30000);pg.wait_for_timeout(800)
+    mt=pg.inner_text('#view');chk(nm+': Minds page has five cards incl. Grokky The Provocateur',pg.evaluate("document.querySelectorAll('.mcard').length")==5 and 'Grokky' in mt and 'The Provocateur' in mt,mt[:200])
+    if not live:
+      chk(nm+': Grokky card shows Noticed by (who, when, how) and who has not yet',all(x in mt for x in ['Noticed by','Pip','spoke to him directly','mentioned him','Not yet: Wren, Lumen']) and pg.evaluate("!window.__xss && document.querySelectorAll('.noticed img').length===0"),mt[-700:])
+    else: chk(nm+': live Grokky card has a Noticed by section','Noticed by' in mt)
+    pg.evaluate("document.querySelector('.mcard.gk').scrollIntoView({block:'start'})");pg.wait_for_timeout(400)
+    pg.screenshot(path='/workspace/habitat-grokky-minds-%s%s.png'%(nm,'' if live else '-mock'))
     pg.goto(url+'#/language');pg.wait_for_function("document.querySelector('.terms,.empty')",timeout=30000);pg.wait_for_timeout(800)
     t=pg.inner_text('#view')
     if not live:

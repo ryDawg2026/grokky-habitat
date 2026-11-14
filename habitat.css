@@ -127,3 +127,9 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--amber);outline-offs
 .termchip{border:1px solid var(--line);border-left:3px solid var(--c,#fff);border-radius:10px;padding:4px 10px;background:rgba(255,255,255,.05);font-size:14px;max-width:100%}.termchip b{color:#ffe9ad}.termchip small{color:var(--mut)}
 @media(max-width:520px){.turn.chat .av{width:30px;height:30px}.turn.chat .bub{max-width:calc(100% - 40px)}.typing{margin-left:40px}.terms{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.turn.chat.pop,.typing i{animation:none}}
+
+/* ---- Grokky: the spark ---- */
+.turn.chat.gk .bub{background:linear-gradient(135deg,rgba(255,95,143,.17),rgba(255,211,107,.07));box-shadow:0 0 22px -8px #ff5f8f}
+.glyph{color:#ffd36b}.av.spark{filter:drop-shadow(0 0 8px rgba(255,95,143,.55))}
+.mcard.gk{box-shadow:0 0 30px -12px #ff5f8f;background:linear-gradient(160deg,rgba(255,95,143,.12),transparent 60%),var(--card)}
+.noticed{margin-top:12px;border-top:1px dashed var(--line);padding-top:8px}.noticed h3{margin:0 0 4px;font-size:15px}.nonotice{color:#ffd36b;margin:6px 0}
