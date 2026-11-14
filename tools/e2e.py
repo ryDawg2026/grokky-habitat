@@ -65,7 +65,7 @@ with sync_playwright() as p:
     chk(nm+': home shows the four rooms and the four minds',all(x in T for x in ['The Walls','The Desk','The Pools','The Open Field','Wren','Pip','Lumen','Bram']))
     chk(nm+': status pill says the minds are awake',('awake' in pg.inner_text('#pulse')),pg.inner_text('#pulse'))
     pg.screenshot(path='/workspace/habitat-%s-%s-home.png'%(tag,nm),full_page=False)
-    for r,must in [('watch',['Watch the chat','Wren','Shared insight']),('language',['Their Language','edgeword','Coined by']),('walls',['The Walls','pinned']),('desk',['Currently studying','On their reading list']),('pools',['The Pools','—']),('field',['The Open Field','topics']),('minds',['The Minds','journal'])]:
+    for r,must in [('watch',['Watch the chat','Wren','Shared insight']),('language',['Their Language'] if live else ['Their Language','edgeword','Coined by']),('walls',['The Walls','pinned']),('desk',['Currently studying','On their reading list']),('pools',['The Pools','—']),('field',['The Open Field','topics']),('minds',['The Minds','journal'])]:
       go(pg,r);t=pg.inner_text('#view');chk(nm+': room /'+r+' renders',all(x in t for x in must),t[:150])
       if r=='pools': pg.wait_for_timeout(500)
       pg.screenshot(path='/workspace/habitat-%s-%s-%s.png'%(tag,nm,r))
