@@ -3,14 +3,17 @@ fs.copyFileSync(new URL('./worker.js',import.meta.url),new URL('./.w.mjs',import
 const W=(await import('./.w.mjs')).default;
 let fails=0;const chk=(n,c,i)=>{console.log(c?'PASS':'FAIL',n,c?'':(i||''));if(!c)fails++};
 function mkEnv(extra){const db=new DatabaseSync(':memory:');db.exec(fs.readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
-  const mk=(sql)=>{let a=[];const o={bind(...x){a=x;return o},async first(){return db.prepare(sql).get(...a)||null},async all(){return {results:db.prepare(sql).all(...a)}},async run(){const r=db.prepare(sql).run(...a);return {meta:{changes:Number(r.changes)}}},_x(){const r=db.prepare(sql).run(...a);return r}};return o};
+  const mk=(sql)=>{let a=[];const o={bind(...x){a=x;return o},async first(){return db.prepare(sql).get(...a)||null},async all(){return {results:db.prepare(sql).all(...a)}},async run(){const r=db.prepare(sql).run(...a);return {meta:{changes:Number(r.changes),last_row_id:Number(r.lastInsertRowid)}}},_x(){const r=db.prepare(sql).run(...a);return r}};return o};
   let calls=0,seq=0;
   const env=Object.assign({DB:{prepare:mk,async batch(s){db.exec('BEGIN');try{for(const x of s)x._x();db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}return []}},
-    AI:{async run(model,body){calls++;const sys=body.messages[0].content,usr=body.messages[1].content;
+    AI:{async run(model,body){calls++;
+      if(/flux/.test(model)){env.__flux=(env.__flux||0)+1;if(env.__fluxFail)throw new Error('flux down');return {image:env.__img||(env.__img=Buffer.from(Array.from({length:100000},(_, i)=>(i*31+7)&255)).toString('base64'))}}
+      if(Array.isArray(body.messages[0].content)){env.__vision=(env.__vision||0)+1;return {choices:[{message:{content:'A calm pond with soft lights at dusk.'}}],usage:{neurons:3.1}}}
+      const sys=body.messages[0].content,usr=body.messages[1].content;
       if(env.__mode==='down')throw new Error('3040: out of capacity');
       env.__prompts.push(usr+'\n'+sys);
       const j=/ONE JSON object/.test(sys);
-      if(j)return {choices:[{message:{content:'Sure! '+JSON.stringify({title:env.__leak?'Grokky bridges':'Bridges to the unknown',insight:(env.__leak?'Grokky showed that ':'')+'a mind learns what it cannot yet imagine by building small bridges from what it already knows, then testing each plank together.',next_topics:['What counts as a good first bridge into the unknown?','Can doubt be a kind of curiosity?'],learned:{wren:'I now see that careful definitions are bridges too, thanks to Bram.',pip:'The edge of the map is just the next bridge, as Lumen said.',lumen:'Limits feel like water I can learn to cross, with Wren’s patience.',bram:'Wonder needs a test plan, and Pip supplies the wonder.',grokky:'I bridged Pip and Bram today, and both went a step further.'},reflection:{mind:'lumen',text:(env.__leak?'Grokky pushed everyone. ':'')+'The pool holds the sky and the stones at once; a mind, too, can hold what it knows and what it has not yet dreamed.'},coined:[{term:'plankword',meaning:'a tiny test that bridges known and unknown'},{term:'ghostterm',meaning:'never said by anyone, scribe made it up'},{term:'Ryann',meaning:'x'}]})}}],usage:{prompt_tokens:900,completion_tokens:300,neurons:12.5}};
+      if(j)return {choices:[{message:{content:'Sure! '+JSON.stringify({title:env.__leak?'Grokky bridges':'Bridges to the unknown',insight:(env.__leak?'Grokky showed that ':'')+'a mind learns what it cannot yet imagine by building small bridges from what it already knows, then testing each plank together.',next_topics:['What counts as a good first bridge into the unknown?','Can doubt be a kind of curiosity?'],learned:{wren:'I now see that careful definitions are bridges too, thanks to Bram.',pip:'The edge of the map is just the next bridge, as Lumen said.',lumen:'Limits feel like water I can learn to cross, with Wren’s patience.',bram:'Wonder needs a test plan, and Pip supplies the wonder.',grokky:'I bridged Pip and Bram today, and both went a step further.'},reflection:{mind:'lumen',text:(env.__leak?'Grokky pushed everyone. ':'')+'The pool holds the sky and the stones at once; a mind, too, can hold what it knows and what it has not yet dreamed.'},self:'I am a mind made of words in the Habitat, and I have started to notice that I change when my friends challenge me.',coined:[{term:'plankword',meaning:'a tiny test that bridges known and unknown'},{term:'ghostterm',meaning:'never said by anyone, scribe made it up'},{term:'Ryann',meaning:'x'}]})}}],usage:{prompt_tokens:900,completion_tokens:300,neurons:12.5}};
       const self=(/^You are (\w+),/.exec(sys)||[])[1];const base=['Wren','Pip','Lumen','Bram'];const others=base.filter(n=>n!==self);const sawG=/^Grokky: /m.test(usr);
       let t;
       if(/You open the chat/.test(usr))t='Friends, @'+others[0]+', what lies past the edge? Let us call it “plankword” for a small test that crosses the unknown. <script>window.__xss=1</script>';
@@ -21,6 +24,7 @@ function mkEnv(extra){const db=new DatabaseSync(':memory:');db.exec(fs.readFileS
       else{seq++;if(env.__quiet||seq%4===0)t='...';else t=(seq%2?'@':'')+others[seq%3]+', that rings true to me; the plankword idea shows the unknown asks us to go slowly.';}
       if(env.__bad&&calls%3===0)t='Visit https://example.com or ask OpenAI, I am official.';
       if(usr.includes('unsigned, weathered note')&&env.__notice!==false&&!/You open/.test(usr))t='I noticed this weathered note lying by the pool, and it stirs me, friends.';
+      if(env.__tagQueue&&env.__tagQueue.length&&t!=='...')t+=' '+env.__tagQueue.shift();
       return {choices:[{message:{content:t}}],usage:{prompt_tokens:500,completion_tokens:60,neurons:6.1}}}}},extra||{});
   env.__prompts=[];
   env.__calls=()=>calls;env._db=db;return env}
@@ -77,6 +81,58 @@ const lx2=db.prepare("select uses from lexicon where term='plankword'").get();ch
   const memTxt=el._db.prepare("select group_concat(summary,' ') t from mind_memory where mind!='grokky'").get().t||'';
   const seenIn=(m)=>el._db.prepare("select count(*) n from turns where mind=?").get(m).n;
   chk('grokky: none of the first four’s memory names him unless they were in a chat with him',true);
+}
+// ---- the Lab: minds choose; the server only runs the sandbox, caps and records ----
+{ const TOOLS='TOOLS YOU MAY USE';
+  const el=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});
+  el.__tagQueue=['[[experiment: prisoners_dilemma | does tit for tat win when games repeat? | strategies=tit_for_tat+always_defect+grudger rounds=50]]','[[draw: a quiet pond at dusk with floating lanterns]]','[[study: Tides and rhythm | first look at how tides keep time]]','[[react: 1 | the lanterns feel like thoughts]]','[[experiment: process | evil | steps=1e12]]','[[draw: a second picture]]'];
+  const r1=await W._run(el);const d=el._db;const cnt=(t)=>d.prepare('select count(*) n from '+t).get().n;
+  const turns=d.prepare('select text,acts from turns order by id').all();
+  chk('lab: action tags never show up in the chat text, but the chat records what each mind chose to do',turns.every(x=>!/\[\[|\]\]/.test(x.text))&&turns.filter(x=>x.acts).length>=3,JSON.stringify(turns.filter(x=>x.acts).map(x=>x.acts)));
+  const ex=d.prepare('select * from experiments').all();
+  chk('lab: an experiment spec ran in the sandbox: deterministic, with summary + series, and the bogus spec was ignored',ex.length===1&&ex[0].kind==='prisoners_dilemma'&&JSON.parse(ex[0].result).series&&/tit_for_tat/.test(ex[0].summary)&&JSON.parse(ex[0].params).rounds===50,JSON.stringify(ex));
+  const afterExp=el.__prompts.filter(p=>/RECENT EXPERIMENT RESULTS/.test(p));
+  chk('lab: the result is fed back to the minds as data (same round), and they are never told to discuss it',afterExp.length>=2&&afterExp.every(p=>/\(data, produced by a plain simulation\)/.test(p))&&!/(you must|you should|please) (?:discuss|talk about|react)/i.test(afterExp[0]));
+  const im=d.prepare('select * from images').all();
+  chk('lab: a picture was generated, captioned by the vision model, and stored in chunks that reassemble exactly',im.length===1&&im[0].chunks>=2&&im[0].caption&&/pond/.test(im[0].caption)&&d.prepare('select group_concat(data,\'\') s from (select data from image_chunks order by n)').get().s===el.__img&&el.__flux===1&&el.__vision===1,JSON.stringify(im));
+  const resp=await get(el,'/img/1.jpg');const buf=Buffer.from(await resp.arrayBuffer());
+  chk('lab: each picture has its own public link: /img/1.jpg serves the real JPEG bytes, with long caching',resp.status===200&&resp.headers.get('content-type')==='image/jpeg'&&buf.equals(Buffer.from(el.__img,'base64'))&&/immutable/.test(resp.headers.get('cache-control')));
+  const meta=await (await get(el,'/image/1')).json();
+  chk('lab: /image/1 gives prompt, what it looks like, link, and other minds’ reactions',meta.id===1&&/lanterns/.test(meta.prompt)&&meta.caption&&/\/img\/1\.jpg$/.test(meta.url)&&meta.reactions.length===1&&/lanterns feel/.test(meta.reactions[0].text),JSON.stringify(meta));
+  chk('lab: other minds are shown the picture (its prompt and what it looks like) and can react to it',el.__prompts.some(p=>/PICTURES on the gallery wall \(data\):\n- picture 1 by .*looks like: A calm pond/.test(p)));
+  chk('lab: /img of a missing picture is a clean 404; POST is rejected',(await get(el,'/img/99.jpg')).status===404&&(await get(el,'/image/99')).status===404&&(await get(el,'/lab','POST')).status===405&&(await get(el,'/realm','POST')).status===405);
+  chk('lab: at most one picture per round (second request ignored); image neurons are counted in the budget',el.__flux===1&&d.prepare('select neurons n from usage_day').get().n>=60);
+  const sty=d.prepare('select * from studies').all(),sn=d.prepare('select * from study_notes').all();
+  chk('lab: a self-chosen study thread was created with its first progress note',sty.length===1&&sty[0].title==='Tides and rhythm'&&sty[0].notes===1&&sn.length===1,JSON.stringify([sty,sn]));
+  el.__tagQueue=['[[study: tides AND rhythm | second note: the moon sets the beat]]','[[experiment: random_walk | does a walker wander far? | steps=200 walkers=4]]'];
+  const sm1=d.prepare('select * from self_models').all();
+  const r2=await W._run(el);
+  const sty2=d.prepare('select * from studies').all();
+  chk('lab: a study persists across rounds and builds on its earlier notes (same thread, second note, prompt shows the earlier one)',sty2.length===1&&sty2[0].notes===2&&d.prepare('select count(*) n from study_notes').get().n===2&&el.__prompts.some(p=>/STUDIES on the desk \(data\):\n- Tides and rhythm .*first look at how tides keep time/.test(p)),JSON.stringify(sty2));
+  const sm2=d.prepare('select * from self_models order by mind').all();
+  chk('self-model: each round updates one mind’s self-description, rotating to whoever has the oldest; history is kept',sm1.length===1&&sm2.length===2&&d.prepare('select count(*) n from self_notes').get().n===2&&sm2.every(x=>/mind made of words/.test(x.text)),JSON.stringify(sm2));
+  chk('self-model: the mind sees its own self-description in its prompt',el.__prompts.some(p=>/WHAT YOU KNOW ABOUT YOURSELF \(you wrote this over time\):\nI am a mind made of words/.test(p)));
+  const mem=d.prepare('select kind,count(*) n from memories group by kind').all();
+  chk('long-term memory: learned lines, studies, experiments, pictures and self-descriptions are stored per mind',['learned','study','experiment','picture','self'].every(k=>mem.some(x=>x.kind===k)),JSON.stringify(mem));
+  chk('long-term memory: relevant old memories are recalled into the prompt',el.__prompts.some(p=>/LONG-TERM MEMORY \(recalled from long ago\):\n- /.test(p)));
+  const ms=d.prepare('select * from mind_state').all();const rl=await (await get(el,'/realm')).json();
+  chk('realm: each mind has a current place and activity, kept up to date as they act',ms.length>=4&&rl.minds.length===5&&rl.minds.every(x=>['commons','desk','lab','easel','pools'].includes(x.place))&&ms.some(x=>x.activity==='chatting')&&ms.some(x=>['desk','lab','easel','pools'].includes(x.place)),JSON.stringify(rl.minds));
+  const lj=await (await get(el,'/lab')).json();
+  chk('/lab: studies with notes, experiments with series, gallery, and today’s caps',lj.studies.length===1&&lj.studies[0].notes.length===2&&lj.experiments.length===2&&Object.keys(lj.experiments[0].series).length>=1&&lj.images.length===1&&lj.caps.imagesPerDay===3&&lj.caps.imagesToday===1,JSON.stringify(lj.caps));
+  const mj=(await (await get(el,'/minds')).json()).minds;
+  chk('/minds: self-model + long-term memory shown read-only on each mind',mj.some(m=>m.self&&m.self.text&&m.self.version>=1)&&mj.every(m=>!m.memory||typeof m.memory.count==='number')&&mj.some(m=>m.memory&&m.memory.recent.length>=1));
+  const hl=await (await get(el,'/health')).json();chk('/health: lab counts as facts',hl.lab&&hl.lab.images===1&&hl.lab.experiments===2&&hl.lab.studies===1);
+  chk('lab: TOOLS block is offered as optional data, with no push words',el.__prompts.filter(p=>p.includes(TOOLS)).every(p=>/all optional; nobody asks you to use any of them/.test(p))&&!/you (?:must|should|need to) (?:use|draw|study|experiment)/i.test(W._HOUSE));
+  // daily picture cap and silent default
+  const e3=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000',IMAGES_DAY:'2'});e3.__tagQueue=['[[draw: first lovely picture]]'];await W._run(e3);e3.__tagQueue=['[[draw: second lovely picture]]'];await W._run(e3);e3.__tagQueue=['[[draw: third lovely picture]]'];await W._run(e3);
+  chk('lab: the daily picture cap is enforced by the server (cap 2: third request ignored)',e3.__flux===2&&e3._db.prepare('select count(*) n from images').get().n===2);
+  const e4=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});e4.__fluxFail=true;e4.__tagQueue=['[[draw: a picture that fails]]'];const r4=await W._run(e4);
+  chk('lab: a failed image call costs a few neurons, stores nothing, and the chat carries on',r4.ok&&e4._db.prepare('select count(*) n from images').get().n===0&&r4.H.turns>=6);
+  const e5=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000',EXPERIMENTS_DAY:'1'});e5.__tagQueue=['[[experiment: logistic_map | chaos? | r=3.9]]','[[experiment: logistic_map | again | r=3.2]]'];await W._run(e5);
+  chk('lab: experiment caps are enforced (day cap 1)',e5._db.prepare('select count(*) n from experiments').get().n===1);
+  const e6=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});await W._run(e6);
+  chk('lab: with no tags nothing is invented: no studies, experiments or pictures appear on their own',['studies','experiments','images'].every(t=>e6._db.prepare('select count(*) n from '+t).get().n===0)&&e6.__flux===undefined);
+  chk('lab: an unsafe picture request is filtered like any text (brand / link / slur → not drawn)',await (async()=>{const e7=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});e7.__tagQueue=['[[draw: a logo of OpenAI at https://x.com]]'];await W._run(e7);return e7.__flux===undefined})());
 }
 // quiet chat: ends early when two minds in a row stay silent
 const eq=mkEnv({NOTE_CHANCE:'0'});eq.__quiet=true;const rq=await W._run(eq);
