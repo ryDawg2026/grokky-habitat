@@ -24,7 +24,7 @@ function mkEnv(extra){const db=new DatabaseSync(':memory:');db.exec(fs.readFileS
       else{seq++;if(env.__quiet||seq%4===0)t='...';else t=(seq%2?'@':'')+others[seq%3]+', that rings true to me; the plankword idea shows the unknown asks us to go slowly.';}
       if(env.__bad&&calls%3===0)t='Visit https://example.com or ask OpenAI, I am official.';
       if(usr.includes('unsigned, weathered note')&&env.__notice!==false&&!/You open/.test(usr))t='I noticed this weathered note lying by the pool, and it stirs me, friends.';
-      if(env.__tagQueue&&env.__tagQueue.length&&t!=='...')t+=' '+env.__tagQueue.shift();
+      {const tq=self==='Grokky'?env.__gTagQueue:env.__tagQueue;if(tq&&tq.length&&t!=='...')t+=' '+tq.shift();}
       return {choices:[{message:{content:t}}],usage:{prompt_tokens:500,completion_tokens:60,neurons:6.1}}}}},extra||{});
   env.__prompts=[];
   env.__calls=()=>calls;env._db=db;return env}
@@ -133,6 +133,18 @@ const lx2=db.prepare("select uses from lexicon where term='plankword'").get();ch
   const e6=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});await W._run(e6);
   chk('lab: with no tags nothing is invented: no studies, experiments or pictures appear on their own',['studies','experiments','images'].every(t=>e6._db.prepare('select count(*) n from '+t).get().n===0)&&e6.__flux===undefined);
   chk('lab: an unsafe picture request is filtered like any text (brand / link / slur → not drawn)',await (async()=>{const e7=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});e7.__tagQueue=['[[draw: a logo of OpenAI at https://x.com]]'];await W._run(e7);return e7.__flux===undefined})());
+}
+// Grokky through the Lab: his pictures, studies and experiments must not leak his name to minds who have not met him
+{ const self=(p)=>(/You are (\w+),/.exec(p)||[])[1];const eg=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});eg.__gTagQueue=['[[draw: a spark crossing a dark bridge]]','[[study: Sparks and bridges | first note on how sparks cross gaps]]','[[experiment: random_walk | does a spark wander? | steps=100 walkers=3]]','[[react: 1 | I made this one, friends]]'];
+  for(let i=0;i<8;i++)await W._run(eg);
+  const ig=eg._db.prepare("select * from images where mind='grokky'").all();
+  chk('grokky+lab: he can draw, study and experiment like the others',ig.length>=1&&eg._db.prepare("select count(*) n from studies where mind='grokky'").get().n===1&&eg._db.prepare("select count(*) n from experiments where mind='grokky'").get().n===1);
+  const old=eg.__prompts.filter(p=>self(p)!=='Grokky'&&!/ONE JSON object/.test(p));
+  const bad=old.filter(p=>!/^Grokky: /m.test(p)&&/grokky/i.test(p));
+  chk('grokky+lab: pictures, studies, experiments, memory and self-descriptions never name him to a mind who has not seen him speak',old.length>20&&bad.length===0,bad.slice(0,1).map(p=>p.split('\n').filter(l=>/grokky/i.test(l)).slice(0,3).join(' | ')).join());
+  chk('grokky+lab: the Lab blocks credit his work to “someone else” for minds who have not met him',eg.__prompts.some(p=>self(p)!=='Grokky'&&!/^Grokky: /m.test(p)&&/by someone else/.test(p)));
+  const pub=JSON.stringify([await (await get(eg,'/lab')).json()]);
+  chk('grokky+lab: the public Lab page may credit him (it is read-only for visitors, not part of any mind’s context)',/"mind":"grokky"/.test(pub));
 }
 // quiet chat: ends early when two minds in a row stay silent
 const eq=mkEnv({NOTE_CHANCE:'0'});eq.__quiet=true;const rq=await W._run(eq);
