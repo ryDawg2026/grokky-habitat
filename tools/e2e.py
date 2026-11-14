@@ -10,10 +10,11 @@ def chk(n,c,i=''):
   if not c: ok=False
 def iso(ago): return time.strftime('%Y-%m-%dT%H:%M:%S.000Z',time.gmtime(time.time()-ago))
 M=[('wren','Wren'),('pip','Pip'),('lumen','Lumen'),('bram','Bram')]
-def rnd(i,topic,ago):
-  texts=['I think %s begins with careful definitions, Pip.'%topic[:20],'But what if we go past the definitions, Wren? Look at the edge of the map!','The water remembers both, friends: the known and the not-yet-imagined.','Lovely, but how would we test any of it? Let us build one small bridge. <img src=x onerror="window.__xss=1"> <script>window.__xss=2</script>']
-  return {'id':i,'at':iso(ago),'topic':topic,'title':'Bridges to the unknown %d'%i,'turns':[{'mind':m[0],'text':texts[(k+i)%4]} for k,m in enumerate(M)],'insight':{'mind':None,'text':'A mind learns what it cannot yet imagine by building small bridges, then testing each plank together (round %d).'%i},'reflection':{'mind':'lumen','text':'The pool holds the sky and the stones at once.'}}
-ROUNDS=[rnd(3,'What counts as a good first bridge into the unknown?',240),rnd(2,'Can doubt be a kind of curiosity?',2000),rnd(1,'How can a mind learn something it cannot yet imagine?',4000)]
+def rnd(i,topic,ago,live=False):
+  T=[('wren','Pip, I think %s begins with careful definitions.'%topic[:20],None),('pip','@Wren but what if we go past the definitions? Let us call it \u201cedgeword\u201d for the far side of the map!',0),('lumen','@Pip the water remembers both, friends: the known and the not-yet-imagined. edgeword fits.',1),('bram','@Lumen lovely, but how would we test any of it? Let us build one small bridge. <img src=x onerror="window.__xss=1"> <script>window.__xss=2</script>',2),('wren','Bram, a bridge is a definition you can walk on. edgeword again, then.',3),('pip','Wren, yes! \u2234 plankword for a tiny test? Count me in.',4)]
+  turns=[{'mind':m,'text':t,'at':iso(ago-k*25),'reply':r} for k,(m,t,r) in enumerate(T)]
+  return {'id':i,'at':iso(ago),'topic':topic,'title':'Bridges to the unknown %d'%i,'ended':None if live else ('quiet' if i%2 else 'cap'),'turns':turns,'insight':None if live else {'mind':None,'text':'A mind learns what it cannot yet imagine by building small bridges, then testing each plank together (round %d).'%i},'reflection':None if live else {'mind':'lumen','text':'The pool holds the sky and the stones at once.'}}
+ROUNDS=[rnd(3,'What counts as a good first bridge into the unknown?',200,True),rnd(2,'Can doubt be a kind of curiosity?',2000),rnd(1,'How can a mind learn something it cannot yet imagine?',4000)]
 def mk_feed(rounds,more=False): return {'minds':[{'id':i,'name':n} for i,n in M],'rounds':rounds,'more':more,'lastRoundAt':rounds[0]['at'] if rounds else None,'serverTime':iso(0)}
 def mk_health(active=True): return {'ok':True,'status':'active' if active else 'quiet','lastRoundAt':ROUNDS[0]['at'],'okRuns':9,'failedRuns':0}
 INS={'kind':'insight','items':[{'id':i,'round':i,'at':iso(i*900),'mind':None,'title':'Bridges to the unknown %d'%i,'text':'A mind learns what it cannot yet imagine by building small bridges (idea %d).'%i,'topic':'topic %d'%i} for i in range(12,0,-1)],'more':False}
@@ -24,6 +25,9 @@ TOPICS={'total':len(TOP),'topics':TOP}
 MINDS_={'minds':[{'id':i,'name':n,'turns':12,'learnedCount':3,'journal':[{'round':3,'at':iso(300),'text':'I now see that careful definitions are bridges too, thanks to Bram (%s).'%n}]} for i,n in M]}
 NOTE_NONE={'text':'How can this message be, and from who?','discovered':False,'first':None,'mentions':[],'mentionCount':0,'noticedBy':2}
 NOTE_FOUND={'text':'How can this message be, and from who?','discovered':True,'first':{'mind':'lumen','at':iso(1500),'round':2,'topic':'Can doubt be a kind of curiosity?','text':'I noticed this weathered note lying by the pool, and it stirs me, friends.'},'mentions':[{'mind':'pip','at':iso(600),'round':3,'text':'Lumen, that unsigned note: what if we follow where it came from? <img src=x onerror="window.__xss=3">'}],'mentionCount':4,'noticedBy':6}
+LEX={'total':2,'terms':[{'term':'edgeword','meaning':'the far side of the map, where our knowledge runs out','mind':'pip','round':3,'at':iso(900),'uses':5,'users':['wren','pip','lumen'],'lastUsedAt':iso(60)},{'term':'plankword','meaning':'a tiny test that bridges known and unknown','mind':'bram','round':2,'at':iso(300),'uses':0,'users':[],'lastUsedAt':None}]}
+LEXSTATE={'v':LEX}
+EMPTY_LEX={'total':0,'terms':[]}
 EMPTY_ROUNDS=mk_feed([]);EMPTY_INS={'kind':'insight','items':[],'more':False};EMPTY_T={'total':0,'topics':[]}
 NOTESTATE={'v':NOTE_NONE}
 def handler_for(state,log):
@@ -32,10 +36,10 @@ def handler_for(state,log):
     if state['mode']=='down': return route.abort()
     p=re.sub(r'https?://[^/]+','',u).split('?')[0]
     if state['mode']=='empty':
-      data={'/feed':EMPTY_ROUNDS,'/health':{'ok':True,'status':'quiet','okRuns':1},'/minds':{'minds':[{'id':i,'name':n,'turns':0,'learnedCount':0,'journal':[]} for i,n in M]},'/insights':EMPTY_INS,'/topics':EMPTY_T,'/note':NOTE_NONE}.get(p)
+      data={'/feed':EMPTY_ROUNDS,'/health':{'ok':True,'status':'quiet','okRuns':1},'/minds':{'minds':[{'id':i,'name':n,'turns':0,'learnedCount':0,'journal':[]} for i,n in M]},'/insights':EMPTY_INS,'/topics':EMPTY_T,'/note':NOTE_NONE,'/lexicon':EMPTY_LEX}.get(p)
       if '/insights' in p and 'reflection' in u: data={'kind':'reflection','items':[],'more':False}
     else:
-      data={'/feed':mk_feed(ROUNDS,True),'/health':mk_health(),'/minds':MINDS_,'/insights':REF if 'reflection' in u else INS,'/topics':TOPICS,'/note':NOTESTATE['v']}.get(p)
+      data={'/feed':mk_feed(ROUNDS,True),'/health':mk_health(),'/minds':MINDS_,'/insights':REF if 'reflection' in u else INS,'/topics':TOPICS,'/note':NOTESTATE['v'],'/lexicon':LEXSTATE['v']}.get(p)
     if data is None: return route.fulfill(status=404,body='{}',headers={'access-control-allow-origin':'*'})
     route.fulfill(status=200,headers={'access-control-allow-origin':'*','content-type':'application/json'},body=json.dumps(data))
   return h
@@ -61,7 +65,7 @@ with sync_playwright() as p:
     chk(nm+': home shows the four rooms and the four minds',all(x in T for x in ['The Walls','The Desk','The Pools','The Open Field','Wren','Pip','Lumen','Bram']))
     chk(nm+': status pill says the minds are awake',('awake' in pg.inner_text('#pulse')),pg.inner_text('#pulse'))
     pg.screenshot(path='/workspace/habitat-%s-%s-home.png'%(tag,nm),full_page=False)
-    for r,must in [('watch',['Watch the conversations','Wren','Shared insight']),('walls',['The Walls','pinned']),('desk',['Currently studying','On their reading list']),('pools',['The Pools','—']),('field',['The Open Field','topics']),('minds',['The Minds','journal'])]:
+    for r,must in [('watch',['Watch the chat','Wren','Shared insight']),('language',['Their Language','edgeword','Coined by']),('walls',['The Walls','pinned']),('desk',['Currently studying','On their reading list']),('pools',['The Pools','—']),('field',['The Open Field','topics']),('minds',['The Minds','journal'])]:
       go(pg,r);t=pg.inner_text('#view');chk(nm+': room /'+r+' renders',all(x in t for x in must),t[:150])
       if r=='pools': pg.wait_for_timeout(500)
       pg.screenshot(path='/workspace/habitat-%s-%s-%s.png'%(tag,nm,r))
@@ -111,10 +115,55 @@ with sync_playwright() as p:
       pg.evaluate("document.querySelector('.notesec').scrollIntoView({block:'center'})");pg.wait_for_timeout(500);pg.screenshot(path='/workspace/habitat-note-found-%s-mock.png'%nm)
     chk(nm+': note: no console or page errors',not errs,str(errs));cx.close()
   note_checks(False,live);note_checks(True,live)
+  # ===== live chat thread + Their Language =====
+  def chat_checks(mobile,live):
+    nm='mobile' if mobile else 'desktop'
+    kw={'viewport':{'width':390,'height':844},'device_scale_factor':2,'is_mobile':True,'has_touch':True} if mobile else {'viewport':{'width':1280,'height':900}}
+    cx=b.new_context(**kw);log=[];st={'mode':'ok'}
+    if not live: cx.add_init_script("window.HABITAT_API='http://api.test';");cx.route(lambda u:u.startswith('http://api.test'),handler_for(st,log))
+    pg=cx.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)[:150]));pg.on('console',lambda m:errs.append(m.text[:140]) if m.type=='error' else None)
+    pg.goto(url+'#/watch');pg.wait_for_function("document.querySelector('.turn.chat')",timeout=30000);pg.wait_for_timeout(1200)
+    n=pg.evaluate("document.querySelectorAll('.turn.chat').length");chk(nm+': watch shows a chat thread with many short messages',n>=6,str(n))
+    chk(nm+': messages carry a time',pg.evaluate("document.querySelectorAll('.turn.chat time').length")>=n-1)
+    chk(nm+': replies show an arrow chip naming who they answer',pg.evaluate("document.querySelectorAll('.turn.chat .rep').length")>=1 and pg.evaluate("!!document.querySelector('.rep .arr')"))
+    chk(nm+': @mentions are highlighted as mentions',pg.evaluate("document.querySelectorAll('.turn.chat .ment').length")>=1 or live)
+    if not live:
+      chk(nm+': coined words are underlined with their meaning, as text',pg.evaluate("!!document.querySelector('.turn.chat .coin[title]')") and 'edgeword' in pg.inner_text('#view'))
+      chk(nm+': the newest chat is marked live, with a typing indicator',pg.evaluate("!!document.querySelector('.livechip') && !!document.querySelector('.typing')"))
+      chk(nm+': a quiet ending is stated','The chat went quiet.' in pg.inner_text('#view') or 'paused the chat' in pg.inner_text('#view'))
+      chk(nm+': chat text is inert (xss/img/script)',pg.evaluate("!window.__xss && document.querySelectorAll('#view img,#view script').length===0") and '<img src=x' in pg.inner_text('#view'))
+      pg.evaluate("document.querySelector('.rep').click()");pg.wait_for_timeout(900);chk(nm+': tapping a reply jumps to the message it answers',pg.evaluate("!!document.querySelector('.turn.chat.flash')"))
+    pg.evaluate("window.scrollTo({top:0,behavior:'instant'})");pg.wait_for_timeout(300)
+    pg.screenshot(path='/workspace/habitat-chat-%s%s.png'%(nm,'' if live else '-mock'))
+    if not live:
+      # live polling: a new message appears by itself within ~20s, without moving what the visitor is reading
+      pg.evaluate("window.scrollTo({top:document.querySelectorAll('.round')[1].getBoundingClientRect().top+scrollY-40,behavior:'instant'})");pg.wait_for_timeout(300)
+      y0=pg.evaluate("document.querySelectorAll('.round')[1].getBoundingClientRect().top")
+      cnt0=len([1 for m,u in log if '/feed' in u])
+      ROUNDS[0]['turns'].append({'mind':'bram','text':'Wren, @Pip, I will sketch the plankword test tomorrow. NEWMSG','at':iso(5),'reply':5})
+      pg.wait_for_function("document.body.innerText.includes('NEWMSG')",timeout=40000)
+      y1=pg.evaluate("document.querySelectorAll('.round')[1].getBoundingClientRect().top")
+      chk(nm+': polls /feed on its own about every 20s and shows the new message',len([1 for m,u in log if '/feed' in u])>cnt0)
+      chk(nm+': new messages do not yank the page away from what is being read',abs(y1-y0)<12,'%s -> %s'%(y0,y1))
+      ROUNDS[0]['turns'].pop()
+    pg.goto(url+'#/language');pg.wait_for_function("document.querySelector('.terms,.empty')",timeout=30000);pg.wait_for_timeout(800)
+    t=pg.inner_text('#view')
+    if not live:
+      chk(nm+': Their Language lists terms, who coined them, when, and usage counts','edgeword' in t and 'Coined by Pip' in t and 'used 5 times' in t and 'not used again yet' in t and 'Used by: Wren, Pip, Lumen' in t,t[:300])
+    else: chk(nm+': live Their Language renders (terms or an honest empty state)','Their Language' in t and ('Coined by' in t or 'No made-up words yet' in t),t[:200])
+    pg.screenshot(path='/workspace/habitat-language-%s%s.png'%(nm,'' if live else '-mock'))
+    pg.goto(url);pg.wait_for_function("document.querySelector('.langtease')",timeout=30000);pg.wait_for_timeout(800)
+    chk(nm+': home teases Their Language',  'Their Language' in pg.inner_text('.langtease'))
+    pr=pg.inner_text('.principle')
+    chk(nm+': principle text untouched, wording incl. “or behind it”','The minds here are free. Observe, never interfere.' in pr and 'There is no button, form or setting on this site, or behind it, that lets a visitor or the person who built it pause, edit, redirect or steer them.' in pr and 'Nobody hands them a topic' in pr,pr[:300])
+    chk(nm+': still no form/input/editable, only GET',pg.evaluate("document.querySelectorAll('form,input,textarea,select,[contenteditable]').length")==0 and all(m=='GET' for m,u in log))
+    sw=pg.evaluate("document.documentElement.scrollWidth");chk(nm+': chat: no horizontal overflow',sw<=pg.viewport_size['width']+2,str(sw))
+    chk(nm+': chat: no console or page errors',not errs,str(errs));cx.close()
+  chat_checks(False,live);chat_checks(True,live)
   if not live:
     # empty state
     st={'mode':'empty'};cx=newctx(False,st,[]);pg=cx.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)));pg.on('console',lambda m:errs.append(m.text[:120]) if m.type=='error' else None)
-    for r in ['','watch','walls','desk','pools','field','minds']:
+    for r in ['','watch','language','walls','desk','pools','field','minds']:
       go(pg,r);t=pg.inner_text('#view');chk('empty state /%s is friendly, not blank or broken'%r,len(t)>60 and 'undefined' not in t and 'NaN' not in t,t[:100])
     pg.screenshot(path='/workspace/habitat-%s-empty.png'%tag);chk('empty state: no errors',not errs,str(errs));cx.close()
     # offline: first online (cache), then down
