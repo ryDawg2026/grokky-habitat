@@ -412,16 +412,18 @@ function codeMapEl(map){map=map||{};
   var wrap=h('section',{class:'codemap card',id:'codemap','aria-labelledby':'cmhd'},h('div',{class:'sechead'},h('h2',{id:'cmhd'},'Core Code Map'),h('span',{class:'chip'},'Read-only · generated from the real source')));
   wrap.appendChild(h('p',{class:'mut'},'A picture of the habitat’s public modules, data tables and GET endpoints, plus the path of a cron round. Click a node to read a sanitized excerpt of the real source. Minds can open the same map through Browse. Nobody can edit the core code from here.'));
   var mods=map.modules||[],W=Math.max(900,mods.length*150+40),H=220;
-  var svgM=svg('svg',{viewBox:'0 0 '+W+' '+H,class:'mapsvg',role:'img','aria-label':'Module diagram of the habitat worker and site'});
+  var svgM=svg('svg',{viewBox:'0 0 '+W+' '+H,class:'mapsvg',role:'img','aria-label':'Module diagram of the habitat worker and site',width:String(W),height:String(H),preserveAspectRatio:'xMinYMid meet'});
   mods.forEach(function(m,i){var x=30+i*150,y=40,g=svg('g',{class:'mapnode','data-id':m.id,tabindex:'0',role:'button','aria-label':m.title});
-    g.appendChild(svg('rect',{x:x,y:y,width:130,height:86,rx:14,fill:'rgba(79,209,197,.16)',stroke:'rgba(79,209,197,.7)','stroke-width':1.5}));
-    var tt=svg('text',{x:x+65,y:y+28,'text-anchor':'middle',fill:'#eef1ff','font-size':13,'font-weight':700});tt.textContent=m.title;g.appendChild(tt);
-    var st=svg('text',{x:x+65,y:y+50,'text-anchor':'middle',fill:'#a9b2dd','font-size':10});st.textContent=(m.file||'').replace(/^worker\//,'');g.appendChild(st);
+    g.appendChild(svg('rect',{x:x,y:y,width:130,height:96,rx:14,fill:'rgba(79,209,197,.16)',stroke:'rgba(79,209,197,.7)','stroke-width':1.5}));
+    var title=String(m.title||m.id),fs=title.length>16?11:13,tt=svg('text',{x:x+65,y:y+28,'text-anchor':'middle',fill:'#eef1ff','font-size':String(fs),'font-weight':700});
+    if(title.length>18){var cut=title.lastIndexOf(' ',16);cut=cut>4?cut:16;tt.textContent=title.slice(0,cut);g.appendChild(tt);var tt2=svg('text',{x:x+65,y:y+42,'text-anchor':'middle',fill:'#eef1ff','font-size':String(fs),'font-weight':700});tt2.textContent=title.slice(cut).trim();g.appendChild(tt2);}
+    else{tt.textContent=title;g.appendChild(tt);}
+    var st=svg('text',{x:x+65,y:y+(title.length>18?68:50),'text-anchor':'middle',fill:'#a9b2dd','font-size':10});st.textContent=(m.file||'').replace(/^worker\//,'');g.appendChild(st);
     if(i<mods.length-1)svgM.appendChild(svg('line',{x1:x+130,y1:y+43,x2:x+150,y2:y+43,stroke:'rgba(255,255,255,.3)','stroke-width':1.5}));
     svgM.appendChild(g)});
   wrap.appendChild(h('h3',{class:'labh'},'Modules'));wrap.appendChild(h('div',{class:'mapscroll'},svgM));
   var flow=map.flow||{},nodes=flow.nodes||[],edges=flow.edges||[],FW=Math.max(820,nodes.length*160+40),FH=180;
-  var svgF=svg('svg',{viewBox:'0 0 '+FW+' '+FH,class:'mapsvg',role:'img','aria-label':'Flowchart of a cron round'});
+  var svgF=svg('svg',{viewBox:'0 0 '+FW+' '+FH,class:'mapsvg',role:'img','aria-label':'Flowchart of a cron round',width:String(FW),height:String(FH),preserveAspectRatio:'xMinYMid meet'});
   var pos={};nodes.forEach(function(n,i){pos[n.id]={x:30+i*155,y:50}});
   edges.forEach(function(e){var a=pos[e[0]],b=pos[e[1]];if(!a||!b)return;svgF.appendChild(svg('line',{x1:a.x+120,y1:a.y+28,x2:b.x,y2:b.y+28,stroke:'#ffb454','stroke-width':2,'marker-end':'url(#arrow)'}))});
   var mk=svg('marker',{id:'arrow',viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'6',markerHeight:'6',orient:'auto'});mk.appendChild(svg('path',{d:'M0 0L10 5L0 10z',fill:'#ffb454'}));svgF.appendChild(svg('defs',null,mk));
