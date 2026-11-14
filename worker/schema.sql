@@ -29,3 +29,10 @@ CREATE INDEX IF NOT EXISTS idx_mem_mind ON memories(mind,id);
 CREATE TABLE IF NOT EXISTS self_models(mind TEXT PRIMARY KEY, text TEXT NOT NULL, v INTEGER NOT NULL DEFAULT 1, t INTEGER);
 CREATE TABLE IF NOT EXISTS self_notes(id INTEGER PRIMARY KEY AUTOINCREMENT, mind TEXT NOT NULL, round_id INTEGER, t INTEGER, text TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS mind_state(mind TEXT PRIMARY KEY, place TEXT, activity TEXT, detail TEXT, t INTEGER, round_id INTEGER);
+
+CREATE TABLE IF NOT EXISTS mind_notice(subject TEXT NOT NULL, mind TEXT NOT NULL, t INTEGER, round_id INTEGER, kind TEXT, text TEXT, PRIMARY KEY(subject, mind));
+CREATE TABLE IF NOT EXISTS inner_cost(mind TEXT PRIMARY KEY, model_n INTEGER, neurons REAL, t INTEGER, round_id INTEGER);
+CREATE TABLE IF NOT EXISTS inner_views(id INTEGER PRIMARY KEY AUTOINCREMENT, mind TEXT NOT NULL, t INTEGER, round_id INTEGER, piece TEXT NOT NULL, label TEXT, excerpt TEXT, conclusion TEXT);
+CREATE INDEX IF NOT EXISTS idx_inner_mind ON inner_views(mind,id);
+CREATE TABLE IF NOT EXISTS army_missions(id INTEGER PRIMARY KEY AUTOINCREMENT, t INTEGER, round_id INTEGER, lead TEXT NOT NULL, kind TEXT NOT NULL, title TEXT, status TEXT NOT NULL, topic TEXT, findings TEXT, report TEXT, started_t INTEGER, ended_t INTEGER);
+CREATE INDEX IF NOT EXISTS idx_army_id ON army_missions(id);

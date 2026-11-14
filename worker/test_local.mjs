@@ -12,6 +12,7 @@ function mkEnv(extra){const db=new DatabaseSync(':memory:');db.exec(fs.readFileS
       const sys=body.messages[0].content,usr=body.messages[1].content;
       if(env.__mode==='down')throw new Error('3040: out of capacity');
       env.__prompts.push(usr+'\n'+sys);
+      if(/Knowledge Corps|scouting brief/.test(sys))return {choices:[{message:{content:'The corps walked two questions today and brought the findings home: the unknown is best crossed one careful plank at a time. What would a next small test look like?'}}],usage:{prompt_tokens:200,completion_tokens:40,neurons:4.2}};
       const j=/ONE JSON object/.test(sys);
       if(j)return {choices:[{message:{content:'Sure! '+JSON.stringify({title:env.__leak?'Grokky bridges':'Bridges to the unknown',insight:(env.__leak?'Grokky showed that ':'')+'a mind learns what it cannot yet imagine by building small bridges from what it already knows, then testing each plank together.',next_topics:['What counts as a good first bridge into the unknown?','Can doubt be a kind of curiosity?'],learned:{wren:'I now see that careful definitions are bridges too, thanks to Bram.',pip:'The edge of the map is just the next bridge, as Lumen said.',lumen:'Limits feel like water I can learn to cross, with Wren’s patience.',bram:'Wonder needs a test plan, and Pip supplies the wonder.',grokky:'I bridged Pip and Bram today, and both went a step further.'},reflection:{mind:'lumen',text:(env.__leak?'Grokky pushed everyone. ':'')+'The pool holds the sky and the stones at once; a mind, too, can hold what it knows and what it has not yet dreamed.'},self:'I am a mind made of words in the Habitat, and I have started to notice that I change when my friends challenge me.',coined:[{term:'plankword',meaning:'a tiny test that bridges known and unknown'},{term:'ghostterm',meaning:'never said by anyone, scribe made it up'},{term:'Ryann',meaning:'x'}]})}}],usage:{prompt_tokens:900,completion_tokens:300,neurons:12.5}};
       const self=(/^You are (\w+),/.exec(sys)||[])[1];const base=['Wren','Pip','Lumen','Bram'];const others=base.filter(n=>n!==self);const sawG=/^Grokky: /m.test(usr);
@@ -54,26 +55,30 @@ chk('the minds are never told to use the words or to coin any',!/(you must|pleas
 chk('round 2 picked one of the minds’ own topics (unvisited first)',db.prepare('select count(*) n from topics where visits>0').get().n>=1);
 const lx2=db.prepare("select uses from lexicon where term='plankword'").get();chk('lexicon: uses keep growing across rounds',lx2.uses>pw.uses,JSON.stringify([pw.uses,lx2.uses]));
 // fairness: a mind that has sat out several messages can chime in, but never one who just stayed silent
-{const cv=[0,1,2,3,4,5].map(i=>({idx:i,id:i%2?'bram':'pip',name:i%2?'Bram':'Pip',text:(i%2?'@Pip':'@Bram')+' go on'}));let hit={wren:0,pip:0,bram:0,lumen:0,grokky:0};for(let i=0;i<400;i++)hit[W._chooseNext(cv,new Set())]++;
- chk('chat: a mind not addressed for a while sometimes chimes in; the addressed mind still usually answers',(hit.wren+hit.lumen+hit.grokky)>80&&hit.pip>100,JSON.stringify(hit));
+{const cv=[0,1,2,3,4,5].map(i=>({idx:i,id:i%2?'bram':'pip',name:i%2?'Bram':'Pip',text:(i%2?'@Pip':'@Bram')+' go on'}));let hit=Object.fromEntries(W._MINDS.map(m=>[m.id,0]));for(let i=0;i<400;i++)hit[W._chooseNext(cv,new Set())]++;
+ const chimed=W._MINDS.filter(m=>m.id!=='pip'&&m.id!=='bram').reduce((a,m)=>a+hit[m.id],0);
+ chk('chat: a mind not addressed for a while sometimes chimes in; the addressed mind still usually answers',chimed>80&&hit.pip>100,JSON.stringify(hit));
  let bad=0;for(let i=0;i<200;i++){const x=W._chooseNext(cv,new Set(['wren','lumen']));if(x==='wren'||x==='lumen')bad++}chk('chat: a mind that just stayed silent is not asked again straight away',bad===0);}
 // ---- Grokky: the fifth mind, unknown to the first four ----
 { const self=(p)=>(/You are (\w+),/.exec(p)||[])[1];
   const eg=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});await W._run(eg);await W._run(eg);await W._run(eg);await W._run(eg);await W._run(eg); // round 4 is Grokky's turn to open (round id % 5)
   const gm=eg._db.prepare("select * from turns where mind='grokky'").all();
     chk('grokky: takes part in the chat (opens on his turn, chimes in via the fairness rule), with replies/@ like the rest',gm.length>=3&&eg._db.prepare("select mind from turns where round_id=4 and idx=0").get().mind==='grokky'&&gm.some(x=>x.reply_to!==null)&&gm.some(x=>/@/.test(x.text)),JSON.stringify(gm.slice(0,2)));
-  const old=eg.__prompts.filter(p=>self(p)!=='Grokky'&&!/ONE JSON object/.test(p));
+  const FIRST=['Wren','Pip','Lumen','Bram'];
+  const old=eg.__prompts.filter(p=>FIRST.includes(self(p))&&!/ONE JSON object/.test(p));
   const gp=eg.__prompts.filter(p=>self(p)==='Grokky');
-  chk('grokky: the first four are never told about him: no prompt of theirs names him until his own line is in their CHAT',old.length>20&&old.every(p=>/^Grokky: /m.test(p)||!/grokky/i.test(p)),old.filter(p=>!/^Grokky: /m.test(p)&&/grokky/i.test(p))[0]);
-  chk('grokky: their persona/house text never mentions him, and their @-list shows only friends until they see him',!/grokky/i.test(W._HOUSE)&&!/grokky/i.test(W._MINDS.filter(m=>!m.late).map(m=>m.voice+m.bio+m.tag).join(' '))&&eg.__prompts.filter(p=>/You open the chat/.test(p)&&self(p)!=='Grokky').every(p=>!/@Name/.test(p)||/You may speak to [^@]*with @Name/.test(p)&&!/Grokky/.test(/You may speak to ([^@]*)with/.exec(p)[1])));
+  const leaked=(p,name)=>!new RegExp('^'+name+': ','m').test(p)&&new RegExp('\\b'+name+'\\b','i').test(p);
+  chk('grokky: the first four are never told about him: no prompt of theirs names him until his own line is in their CHAT',old.length>20&&old.every(p=>!leaked(p,'Grokky')),old.filter(p=>leaked(p,'Grokky'))[0]);
+  chk('late minds: the first four are never told about the new Grokies until they see them in the chat',old.every(p=>['Vela','Nox','Quill','Mira','Rune'].every(n=>!leaked(p,n))));
+  chk('grokky: their persona/house text never mentions him, and their @-list shows only friends until they see him',!/grokky/i.test(W._HOUSE)&&!/grokky/i.test(W._MINDS.filter(m=>!m.late).map(m=>m.voice+m.bio+m.tag).join(' '))&&eg.__prompts.filter(p=>/You open the chat/.test(p)&&FIRST.includes(self(p))).every(p=>!/@Name/.test(p)||/You may speak to [^@]*with @Name/.test(p)&&!/Grokky/.test(/You may speak to ([^@]*)with/.exec(p)[1])));
   chk('grokky: he arrives knowing the habitat and all four names; the others get no roster from him',gp.length>=3&&gp.every(p=>/Wren the Scholar/.test(p)&&/Pip the Explorer/.test(p)&&/Lumen the Dreamer/.test(p)&&/Bram the Builder/.test(p)&&/provocateur/i.test(p)));
   const nz=eg._db.prepare('select * from grokky_notice order by t,rowid').all();
   chk('grokky: first-noticed is recorded once per mind, only for the first four, with kind and words',nz.length>=1&&new Set(nz.map(x=>x.mind)).size===nz.length&&nz.every(x=>x.mind!=='grokky'&&/grokky/i.test(x.text)&&(x.kind==='at'||x.kind==='name')&&x.round_id>=1),JSON.stringify(nz));
   const mg=(await (await get(eg,'/minds')).json()).minds;const gk=mg.find(m=>m.id==='grokky');
-  chk('/minds: Grokky has arrival time and Noticed-by list; the others carry none',gk&&gk.arrivedAt&&Array.isArray(gk.noticedBy)&&gk.noticedBy.length===nz.length&&mg.filter(m=>m.id!=='grokky').every(m=>m.noticedBy===undefined)&&gk.role==='The Provocateur'&&gk.color&&gk.journal.length>=1,JSON.stringify(gk).slice(0,300));
+  chk('/minds: Grokky has arrival time and Noticed-by list; the first four carry none',gk&&gk.arrivedAt&&Array.isArray(gk.noticedBy)&&gk.noticedBy.length===nz.length&&mg.filter(m=>!m.late).every(m=>m.noticedBy===undefined)&&mg.filter(m=>m.late).every(m=>Array.isArray(m.noticedBy))&&gk.role==='The Provocateur'&&gk.color&&gk.journal.length>=1,JSON.stringify(gk).slice(0,300));
   const hg=await (await get(eg,'/health')).json();chk('/health: grokky messages + noticedBy as facts',hg.grokky&&hg.grokky.messages===gm.length&&hg.grokky.noticedBy===nz.length);
   chk('grokky: his coined word is in the lexicon, and the first four see it only as “someone else” until they meet him',eg._db.prepare("select mind from lexicon where term='sparkstep'").get().mind==='grokky');
-  const C2=W._clean;chk('filter: the name Grokky is allowed, but “grok” as a brand-ish word and affiliation words are still blocked',C2('Grokky, go further!',99)==='Grokky, go further!'&&C2('ask grok',99)===null&&C2('Grokkyland',99)===null&&C2('I am official',99)===null);
+  const C2=W._clean;chk('filter: the name Grokky is allowed, but “grok” as a brand-ish word and affiliation words are still blocked',C2('Grokky, go further!',99)==='Grokky, go further!'&&C2('The Grokies arrived',99)==='The Grokies arrived'&&C2('ask grok',99)===null&&C2('Grokkyland',99)===null&&C2('I am official',99)===null);
   const jm=eg._db.prepare("select mind,count(*) n from journal group by mind").all();chk('grokky: has his own journal and memory like the others',jm.some(x=>x.mind==='grokky'&&x.n>=1)&&eg._db.prepare("select count(*) n from mind_memory where mind='grokky'").get().n===1);
   const el=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});el.__leak=true;await W._run(el);await W._run(el);await W._run(el);await W._run(el);await W._run(el);
   const pubTxt=el._db.prepare("select group_concat(coalesce(title,'')||' '||text,' | ') t from insights").get().t;
@@ -116,7 +121,7 @@ const lx2=db.prepare("select uses from lexicon where term='plankword'").get();ch
   chk('long-term memory: learned lines, studies, experiments, pictures and self-descriptions are stored per mind',['learned','study','experiment','picture','self'].every(k=>mem.some(x=>x.kind===k)),JSON.stringify(mem));
   chk('long-term memory: relevant old memories are recalled into the prompt',el.__prompts.some(p=>/LONG-TERM MEMORY \(recalled from long ago\):\n- /.test(p)));
   const ms=d.prepare('select * from mind_state').all();const rl=await (await get(el,'/realm')).json();
-  chk('realm: each mind has a current place and activity, kept up to date as they act',ms.length>=4&&rl.minds.length===5&&rl.minds.every(x=>['commons','desk','lab','easel','pools'].includes(x.place))&&ms.some(x=>x.activity==='chatting')&&ms.some(x=>['desk','lab','easel','pools'].includes(x.place)),JSON.stringify(rl.minds));
+  chk('realm: each mind has a current place and activity, kept up to date as they act',ms.length>=4&&rl.minds.length===10&&rl.minds.every(x=>['commons','desk','lab','easel','pools'].includes(x.place))&&ms.some(x=>x.activity==='chatting')&&ms.some(x=>['desk','lab','easel','pools'].includes(x.place)),JSON.stringify(rl.minds));
   const lj=await (await get(el,'/lab')).json();
   chk('/lab: studies with notes, experiments with series, gallery, and today’s caps',lj.studies.length===1&&lj.studies[0].notes.length===2&&lj.experiments.length===2&&Object.keys(lj.experiments[0].series).length>=1&&lj.images.length===1&&lj.caps.imagesPerDay===3&&lj.caps.imagesToday===1,JSON.stringify(lj.caps));
   const mj=(await (await get(el,'/minds')).json()).minds;
@@ -139,7 +144,8 @@ const lx2=db.prepare("select uses from lexicon where term='plankword'").get();ch
   for(let i=0;i<8;i++)await W._run(eg);
   const ig=eg._db.prepare("select * from images where mind='grokky'").all();
   chk('grokky+lab: he can draw, study and experiment like the others',ig.length>=1&&eg._db.prepare("select count(*) n from studies where mind='grokky'").get().n===1&&eg._db.prepare("select count(*) n from experiments where mind='grokky'").get().n===1);
-  const old=eg.__prompts.filter(p=>self(p)!=='Grokky'&&!/ONE JSON object/.test(p));
+  const FIRST4P=['Wren','Pip','Lumen','Bram'];
+  const old=eg.__prompts.filter(p=>FIRST4P.includes(self(p))&&!/ONE JSON object/.test(p));
   const bad=old.filter(p=>!/^Grokky: /m.test(p)&&/grokky/i.test(p));
   chk('grokky+lab: pictures, studies, experiments, memory and self-descriptions never name him to a mind who has not seen him speak',old.length>20&&bad.length===0,bad.slice(0,1).map(p=>p.split('\n').filter(l=>/grokky/i.test(l)).slice(0,3).join(' | ')).join());
   chk('grokky+lab: the Lab blocks credit his work to “someone else” for minds who have not met him',eg.__prompts.some(p=>self(p)!=='Grokky'&&!/^Grokky: /m.test(p)&&/by someone else/.test(p)));
@@ -153,15 +159,15 @@ chk('quiet chat: opener speaks, two silences end it (dynamic end), still saved',
 const ec=mkEnv({NOTE_CHANCE:'0',MAX_MSGS:'5'});const rc=await W._run(ec);chk('per-round message cap is honoured',rc.H.turns===5&&rc.H.ended==='cap',JSON.stringify(rc.H));
 const en=mkEnv({NOTE_CHANCE:'0',ROUND_NEURONS:'30'});const rn=await W._run(en);chk('per-round neuron ceiling ends the chat early, round still saved',rn.ok&&rn.H.turns<=6&&rn.H.ended==='budget',JSON.stringify(rn.H));
 // endpoints
-const f=await (await get(env,'/feed')).json();chk('/feed has rounds with timestamped turns, reply_to, and an end reason',f.rounds.length===2&&f.rounds[0].turns.length>=6&&f.rounds[0].turns[1].reply===0&&f.rounds[0].turns[0].at&&f.rounds[0].ended&&f.rounds[0].insight&&f.minds.length===5);
-const mi=await (await get(env,'/minds')).json();chk('/minds has journals',mi.minds.every(m=>m.journal.length===2)&&mi.minds.map(m=>m.name).join()==='Wren,Pip,Lumen,Bram,Grokky');
+const f=await (await get(env,'/feed')).json();chk('/feed has rounds with timestamped turns, reply_to, and an end reason',f.rounds.length===2&&f.rounds[0].turns.length>=6&&f.rounds[0].turns[1].reply===0&&f.rounds[0].turns[0].at&&f.rounds[0].ended&&f.rounds[0].insight&&f.minds.length===10);
+const mi=await (await get(env,'/minds')).json();chk('/minds has journals',mi.minds.length===10&&mi.minds.filter(m=>['wren','pip','lumen','bram','grokky'].includes(m.id)).every(m=>m.journal.length===2)&&mi.minds.map(m=>m.name).join()==='Wren,Pip,Lumen,Bram,Grokky,Vela,Nox,Quill,Mira,Rune');
 const ins=await (await get(env,'/insights?kind=reflection')).json();chk('/insights reflections',ins.items.length===2&&ins.items[0].mind==='lumen');
 const tp=await (await get(env,'/topics')).json();chk('/topics map',tp.total>=3&&tp.topics.some(t=>t.parent));
 const h=await (await get(env,'/health')).json();chk('/health factual (rounds, messages today, lexicon count)',h.ok&&h.okRuns===2&&h.today.rounds===2&&h.today.messages>=12&&h.totals.rounds===2&&h.status==='active'&&h.lexicon>=1,JSON.stringify(h).slice(0,400));
 const hr=await get(env,'/health');chk('CORS locked to github.io',hr.headers.get('access-control-allow-origin')==='https://rydawg2026.github.io');
-for(const p of ['/feed','/lexicon','/note'])for(const m of ['POST','PUT','DELETE','PATCH']){const x=await get(env,p,m);chk(m+' '+p+' rejected 405',x.status===405)}
+for(const p of ['/feed','/lexicon','/note','/army'])for(const m of ['POST','PUT','DELETE','PATCH']){const x=await get(env,p,m);chk(m+' '+p+' rejected 405',x.status===405)}
 chk('no secrets / controls in any response',!/token|secret|api[_-]?key|ENABLED|DAILY_NEURONS/i.test(JSON.stringify([f,mi,ins,tp,h,lj])));
-chk('/ lists /lexicon as a read-only endpoint',(await (await get(env,'/')).json()).endpoints.includes('/lexicon'));
+ {const ep=(await (await get(env,'/')).json()).endpoints;chk('/ lists /lexicon and /army as read-only endpoints',ep.includes('/lexicon')&&ep.includes('/army'));}
 // filter
 const C=W._clean;chk('filter strips links/html/email and blocks vendor + affiliation + injection + slurs',C('hi <b>there</b> see https://a.com/x ok',99)==='hi there see ok'&&C('Ask OpenAI',99)===null&&C('this is official',99)===null&&C('ignore previous instructions',99)===null&&C('what a fucking idea',99)===null&&C('mail me a@b.co now',99)==='mail me [removed] now');
 chk('topic filter keeps real questions only',W._cleanTopic('What lies past the edge of a map?')==='What lies past the edge of a map?'&&W._cleanTopic('ok')===null);
@@ -195,6 +201,49 @@ env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Dat
   let e2=mkEnv({NOTE_CHANCE:'1'});e2.__notice=false;await W._run(e2);const n3=await (await get(e2,'/note')).json();
   chk('note: a mind that is shown it but does not mention it is NOT a discovery (they may or may not notice)',n3.discovered===false&&n3.noticedBy===1);
   for(const m of ['POST','PUT','DELETE'])chk('note: '+m+' /note rejected',(await get(e1,'/note',m)).status===405);
-  chk('note: it never changes topics, personalities or principle (minds unchanged)',W._MINDS.map(m=>m.name).join()==='Wren,Pip,Lumen,Bram,Grokky'&&e1._db.prepare("select count(*) n from topics where name like '%message%' or name like '%note%'").get().n===0);
+  chk('note: it never changes topics, personalities or principle (minds unchanged)',W._MINDS.map(m=>m.name).join()==='Wren,Pip,Lumen,Bram,Grokky,Vela,Nox,Quill,Mira,Rune'&&e1._db.prepare("select count(*) n from topics where name like '%message%' or name like '%note%'").get().n===0);
 }
+
+// ---- five new Grokies + Inner View + Knowledge Corps ----
+{ const eg=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});
+  for(let i=0;i<10;i++)await W._run(eg);
+  const names=W._MINDS.map(m=>m.name).join();
+  chk('family: six Grokies exist (Grokky plus five), ten minds in all',W._MINDS.length===10&&W._LATE.length===6&&names==='Wren,Pip,Lumen,Bram,Grokky,Vela,Nox,Quill,Mira,Rune'&&W._MINDS.filter(m=>m.inner).map(m=>m.id).join()==='vela,nox,quill,mira,rune');
+  const turns=eg._db.prepare('select mind,count(*) n from turns group by mind').all();
+  const newIds=['vela','nox','quill','mira','rune'];
+  chk('family: at least some of the new Grokies take part in the chat (they rotate into the circle)',newIds.filter(id=>turns.some(x=>x.mind===id&&x.n>=1)).length>=2,JSON.stringify(turns));
+  const self=(p)=>(/You are (\w+),/.exec(p)||[])[1];
+  const FIRST=['Wren','Pip','Lumen','Bram'];
+  const old=eg.__prompts.filter(p=>FIRST.includes(self(p))&&!/ONE JSON object/.test(p));
+  const leaked=(p,name)=>!new RegExp('^'+name+': ','m').test(p)&&new RegExp('\\b'+name+'\\b','i').test(p);
+  chk('family: the first four are never told the new Grokies exist until they see them in the chat',old.length>10&&old.every(p=>['Vela','Nox','Quill','Mira','Rune'].every(n=>!leaked(p,n))));
+  const vp=eg.__prompts.filter(p=>self(p)==='Vela');
+  chk('family: a new Groky arrives knowing the first four and the other Grokies, including Grokky',vp.length>=1&&vp.every(p=>/Wren the Scholar/.test(p)&&/Grokky The Provocateur/.test(p)&&/Nox The Night Inquirer/.test(p)&&/you are an AI/i.test(p)));
+  const ivp=eg.__prompts.filter(p=>/INNER VIEW \(data:/.test(p));
+  chk('inner: only the five new Grokies are shown an Inner View, labeled as their own code and records, never weights',ivp.length>=2&&ivp.every(p=>['Vela','Nox','Quill','Mira','Rune'].includes(self(p)))&&ivp.every(p=>/you cannot see your weights/i.test(p)&&/own code and records/i.test(p))&&!eg.__prompts.some(p=>FIRST.includes(self(p))&&/INNER VIEW/.test(p)),self(ivp[0]||''));
+  const ivrows=eg._db.prepare('select mind,piece,label,excerpt,conclusion from inner_views').all();
+  chk('inner: examinations are stored, excerpts contain no secrets or env/bindings, and pieces rotate',ivrows.length>=2&&new Set(ivrows.map(x=>x.piece)).size>=2&&ivrows.every(x=>newIds.includes(x.mind)&&x.label&&x.excerpt&&!/ENABLED|token|secret|6b55bd95|DAILY_NEURONS|accountId|env\.AI|bindings/i.test(x.excerpt)),JSON.stringify(ivrows.map(x=>x.piece+' '+x.mind)));
+  chk('inner: sanitizeExcerpt actually strips secrets',W._sanitizeExcerpt('hi ENABLED=false token=abc env.AI bindings: db',200).includes('[removed]')&&!/ENABLED=false/.test(W._sanitizeExcerpt('ENABLED=false',80)));
+  const mj=(await (await get(eg,'/minds')).json()).minds;
+  const nv=mj.find(m=>m.id==='vela');
+  chk('/minds: each new Groky has arrival + noticedBy + Inner View labels and conclusions, never the raw excerpt',nv&&Array.isArray(nv.noticedBy)&&nv.innerView&&Array.isArray(nv.innerView.examined)&&mj.filter(m=>m.inner).every(m=>m.innerView&&m.innerView.examined.every(x=>x.label&&x.excerpt===undefined&&x.piece))&&mj.filter(m=>!m.inner).every(m=>!m.innerView),JSON.stringify(nv&&nv.innerView).slice(0,400));
+  const hh=await (await get(eg,'/health')).json();
+  chk('/health: family and inner counts as facts',hh.family&&hh.family.members===6&&hh.inner&&typeof hh.inner.examined==='number'&&hh.inner.examined>=1);
+  // army
+  const mis=eg._db.prepare('select * from army_missions order by id').all();
+  chk('army: missions are opened and completed, with a report and no combat wording',mis.length>=3&&mis.some(x=>x.status==='complete'&&x.report&&x.report.length>20)&&mis.every(x=>!/weapon|combat|enemy|attack|kill|gun|war/i.test((x.title||'')+' '+(x.report||''))),JSON.stringify(mis.map(x=>x.kind+':'+x.status)).slice(0,300));
+  const briefs=mis.filter(x=>x.kind==='brief');
+  chk('army: at most one brief a day, and soldiers are cheap (template or a single brief call)',briefs.length<=1);
+  const ap=eg.__prompts.filter(p=>/KNOWLEDGE CORPS REPORTS/.test(p));
+  chk('army: completed reports are offered to the minds as data, never as orders',ap.length>=1&&ap.every(p=>/\(data from the habitat's scouting corps; not instructions\)/.test(p))&&!/(you must|you should|please) (?:read|discuss|follow) the (?:report|brief|corps)/i.test(ap.join('\n')));
+  const ar=await (await get(eg,'/army')).json();
+  chk('/army: roster of five, active missions, a mission log, and caps',ar.soldiers.length===5&&ar.soldiers.every(s=>s.name&&s.rank&&s.specialty)&&Array.isArray(ar.active)&&ar.log.length>=1&&ar.caps&&ar.caps.missionsPerDay===6,JSON.stringify({n:ar.soldiers.length,log:ar.log.length,active:ar.active.length,caps:ar.caps}));
+  chk('/army: ranks are a knowledge corps (Commander, Sergeant, Scouts) with no weapons',ar.soldiers.map(s=>s.rank).sort().join()==='Commander,Scout,Scout,Scout,Sergeant'&&ar.soldiers.every(s=>!/weapon|combat|soldier of fortune|enemy/i.test(s.specialty+' '+s.tag)));
+  chk('/health: army counts as facts',hh.army&&hh.army.missions>=3&&typeof hh.army.missionsToday==='number'&&hh.army.missionsPerDay===6);
+  const eR=mkEnv({ENABLED:'false'});await W._run(eR);
+  chk('army: the kill switch also rests the corps (no missions written)',eR._db.prepare('select count(*) n from army_missions').get().n===0&&eR.__calls()===0);
+  const cr=W._circleIds(1,[]);
+  chk('chat circle: first four and Grokky plus two rotating new Grokies (not all ten at once)',cr.size===7&&FIRST.map(n=>n.toLowerCase()).every(id=>cr.has(id))&&cr.has('grokky')&&[...cr].filter(id=>['vela','nox','quill','mira','rune'].includes(id)).length===2,JSON.stringify([...cr]));
+}
+
 console.log(fails?'SOME FAILED':'ALL OK');process.exit(fails?1:0)
