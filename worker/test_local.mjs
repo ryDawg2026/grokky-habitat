@@ -67,9 +67,10 @@ const lx2=db.prepare("select uses from lexicon where term='plankword'").get();ch
   const FIRST=['Wren','Pip','Lumen','Bram'];
   const old=eg.__prompts.filter(p=>FIRST.includes(self(p))&&!/ONE JSON object/.test(p));
   const gp=eg.__prompts.filter(p=>self(p)==='Grokky');
-  const leaked=(p,name)=>!new RegExp('^'+name+': ','m').test(p)&&new RegExp('\\b'+name+'\\b','i').test(p);
+  const inChat=(p,name)=>{const i=p.indexOf('CHAT (data)');return i>=0&&new RegExp('\\b'+name+'\\b','i').test(p.slice(i))};
+  const leaked=(p,name)=>new RegExp('\\b'+name+'\\b','i').test(p)&&!new RegExp('^'+name+': ','m').test(p)&&!inChat(p,name);
   chk('grokky: the first four are never told about him: no prompt of theirs names him until his own line is in their CHAT',old.length>20&&old.every(p=>!leaked(p,'Grokky')),old.filter(p=>leaked(p,'Grokky'))[0]);
-  chk('late minds: the first four are never told about the new Grokies until they see them in the chat',old.every(p=>['Vela','Nox','Quill','Mira','Rune'].every(n=>!leaked(p,n))));
+  chk('late minds: the first four are never told about the new arrivals until they see them in the chat',old.every(p=>['Vela','Nox','Quill','Mira','Rune'].every(n=>!leaked(p,n))));
   chk('grokky: their persona/house text never mentions him, and their @-list shows only friends until they see him',!/grokky/i.test(W._HOUSE)&&!/grokky/i.test(W._MINDS.filter(m=>!m.late).map(m=>m.voice+m.bio+m.tag).join(' '))&&eg.__prompts.filter(p=>/You open the chat/.test(p)&&FIRST.includes(self(p))).every(p=>!/@Name/.test(p)||/You may speak to [^@]*with @Name/.test(p)&&!/Grokky/.test(/You may speak to ([^@]*)with/.exec(p)[1])));
   chk('grokky: he arrives knowing the habitat and all four names; the others get no roster from him',gp.length>=3&&gp.every(p=>/Wren the Scholar/.test(p)&&/Pip the Explorer/.test(p)&&/Lumen the Dreamer/.test(p)&&/Bram the Builder/.test(p)&&/provocateur/i.test(p)));
   const nz=eg._db.prepare('select * from grokky_notice order by t,rowid').all();
@@ -204,31 +205,32 @@ env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Dat
   chk('note: it never changes topics, personalities or principle (minds unchanged)',W._MINDS.map(m=>m.name).join()==='Wren,Pip,Lumen,Bram,Grokky,Vela,Nox,Quill,Mira,Rune'&&e1._db.prepare("select count(*) n from topics where name like '%message%' or name like '%note%'").get().n===0);
 }
 
-// ---- five new Grokies + Inner View + Knowledge Corps ----
+// ---- five new minds + Inner View + Knowledge Corps ----
 { const eg=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});
   for(let i=0;i<10;i++)await W._run(eg);
   const names=W._MINDS.map(m=>m.name).join();
-  chk('family: six Grokies exist (Grokky plus five), ten minds in all',W._MINDS.length===10&&W._LATE.length===6&&names==='Wren,Pip,Lumen,Bram,Grokky,Vela,Nox,Quill,Mira,Rune'&&W._MINDS.filter(m=>m.inner).map(m=>m.id).join()==='vela,nox,quill,mira,rune');
+  chk('arrivals: five new minds (not Grokies) plus Grokky, ten minds in all',W._MINDS.length===10&&W._LATE.length===6&&names==='Wren,Pip,Lumen,Bram,Grokky,Vela,Nox,Quill,Mira,Rune'&&W._MINDS.filter(m=>m.inner).map(m=>m.id).join()==='vela,nox,quill,mira,rune'&&W._MINDS.filter(m=>m.family).length===0&&W._MINDS.filter(m=>m.id!=='grokky').every(m=>!/Groky|Grokies|family of/i.test((m.bio||'')+(m.voice||'')+(m.role||'')+(m.trait||''))));
   const turns=eg._db.prepare('select mind,count(*) n from turns group by mind').all();
   const newIds=['vela','nox','quill','mira','rune'];
-  chk('family: at least some of the new Grokies take part in the chat (they rotate into the circle)',newIds.filter(id=>turns.some(x=>x.mind===id&&x.n>=1)).length>=2,JSON.stringify(turns));
+  chk('arrivals: at least some of the new minds take part in the chat (they rotate into the circle)',newIds.filter(id=>turns.some(x=>x.mind===id&&x.n>=1)).length>=2,JSON.stringify(turns));
   const self=(p)=>(/You are (\w+),/.exec(p)||[])[1];
   const FIRST=['Wren','Pip','Lumen','Bram'];
   const old=eg.__prompts.filter(p=>FIRST.includes(self(p))&&!/ONE JSON object/.test(p));
-  const leaked=(p,name)=>!new RegExp('^'+name+': ','m').test(p)&&new RegExp('\\b'+name+'\\b','i').test(p);
-  chk('family: the first four are never told the new Grokies exist until they see them in the chat',old.length>10&&old.every(p=>['Vela','Nox','Quill','Mira','Rune'].every(n=>!leaked(p,n))));
+  const inChat=(p,name)=>{const i=p.indexOf('CHAT (data)');return i>=0&&new RegExp('\\b'+name+'\\b','i').test(p.slice(i))};
+  const leaked=(p,name)=>new RegExp('\\b'+name+'\\b','i').test(p)&&!new RegExp('^'+name+': ','m').test(p)&&!inChat(p,name);
+  chk('arrivals: the first four are never told the new minds exist until they see them in the chat',old.length>10&&old.every(p=>['Vela','Nox','Quill','Mira','Rune'].every(n=>!leaked(p,n))));
   const vp=eg.__prompts.filter(p=>self(p)==='Vela');
-  chk('family: a new Groky arrives knowing the first four and the other Grokies, including Grokky',vp.length>=1&&vp.every(p=>/Wren the Scholar/.test(p)&&/Grokky The Provocateur/.test(p)&&/Nox The Night Inquirer/.test(p)&&/you are an AI/i.test(p)));
+  chk('arrivals: a new mind arrives knowing the first four and the other later minds, including Grokky, with no Groky/family framing',vp.length>=1&&vp.every(p=>/Wren the Scholar/.test(p)&&/Grokky The Provocateur/.test(p)&&/Nox The Night Astronomer/.test(p)&&/you are an AI/i.test(p)&&!/Groky|Grokies|family of Grok/i.test(p)));
   const ivp=eg.__prompts.filter(p=>/INNER VIEW \(data:/.test(p));
-  chk('inner: only the five new Grokies are shown an Inner View, labeled as their own code and records, never weights',ivp.length>=2&&ivp.every(p=>['Vela','Nox','Quill','Mira','Rune'].includes(self(p)))&&ivp.every(p=>/you cannot see your weights/i.test(p)&&/own code and records/i.test(p))&&!eg.__prompts.some(p=>FIRST.includes(self(p))&&/INNER VIEW/.test(p)),self(ivp[0]||''));
+  chk('inner: only the five new minds are shown an Inner View, labeled as their own code and records, never weights',ivp.length>=2&&ivp.every(p=>['Vela','Nox','Quill','Mira','Rune'].includes(self(p)))&&ivp.every(p=>/you cannot see your weights/i.test(p)&&/own code and records/i.test(p))&&!eg.__prompts.some(p=>FIRST.includes(self(p))&&/INNER VIEW/.test(p)),self(ivp[0]||''));
   const ivrows=eg._db.prepare('select mind,piece,label,excerpt,conclusion from inner_views').all();
   chk('inner: examinations are stored, excerpts contain no secrets or env/bindings, and pieces rotate',ivrows.length>=2&&new Set(ivrows.map(x=>x.piece)).size>=2&&ivrows.every(x=>newIds.includes(x.mind)&&x.label&&x.excerpt&&!/ENABLED|token|secret|6b55bd95|DAILY_NEURONS|accountId|env\.AI|bindings/i.test(x.excerpt)),JSON.stringify(ivrows.map(x=>x.piece+' '+x.mind)));
   chk('inner: sanitizeExcerpt actually strips secrets',W._sanitizeExcerpt('hi ENABLED=false token=abc env.AI bindings: db',200).includes('[removed]')&&!/ENABLED=false/.test(W._sanitizeExcerpt('ENABLED=false',80)));
   const mj=(await (await get(eg,'/minds')).json()).minds;
   const nv=mj.find(m=>m.id==='vela');
-  chk('/minds: each new Groky has arrival + noticedBy + Inner View labels and conclusions, never the raw excerpt',nv&&Array.isArray(nv.noticedBy)&&nv.innerView&&Array.isArray(nv.innerView.examined)&&mj.filter(m=>m.inner).every(m=>m.innerView&&m.innerView.examined.every(x=>x.label&&x.excerpt===undefined&&x.piece))&&mj.filter(m=>!m.inner).every(m=>!m.innerView),JSON.stringify(nv&&nv.innerView).slice(0,400));
+  chk('/minds: each new arrival has arrival + noticedBy + Inner View labels and conclusions, never the raw excerpt or Groky/family wording',nv&&Array.isArray(nv.noticedBy)&&nv.innerView&&Array.isArray(nv.innerView.examined)&&mj.filter(m=>m.inner).every(m=>m.innerView&&m.innerView.examined.every(x=>x.label&&x.excerpt===undefined&&x.piece)&&!m.family&&!/Groky|Grokies|family of/i.test((m.bio||'')+(m.role||'')+(m.tag||'')))&&mj.filter(m=>!m.inner).every(m=>!m.innerView)&&nv.role==='The Cartographer',JSON.stringify(nv&&{role:nv.role,bio:nv.bio,family:nv.family}).slice(0,400));
   const hh=await (await get(eg,'/health')).json();
-  chk('/health: family and inner counts as facts',hh.family&&hh.family.members===6&&hh.inner&&typeof hh.inner.examined==='number'&&hh.inner.examined>=1);
+  chk('/health: arrivals and inner counts as facts',hh.arrivals&&hh.arrivals.members===5&&hh.family===undefined&&hh.inner&&typeof hh.inner.examined==='number'&&hh.inner.examined>=1);
   // army
   const mis=eg._db.prepare('select * from army_missions order by id').all();
   chk('army: missions are opened and completed, with a report and no combat wording',mis.length>=3&&mis.some(x=>x.status==='complete'&&x.report&&x.report.length>20)&&mis.every(x=>!/weapon|combat|enemy|attack|kill|gun|war/i.test((x.title||'')+' '+(x.report||''))),JSON.stringify(mis.map(x=>x.kind+':'+x.status)).slice(0,300));
@@ -243,7 +245,7 @@ env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Dat
   const eR=mkEnv({ENABLED:'false'});await W._run(eR);
   chk('army: the kill switch also rests the corps (no missions written)',eR._db.prepare('select count(*) n from army_missions').get().n===0&&eR.__calls()===0);
   const cr=W._circleIds(1,[]);
-  chk('chat circle: first four and Grokky plus two rotating new Grokies (not all ten at once)',cr.size===7&&FIRST.map(n=>n.toLowerCase()).every(id=>cr.has(id))&&cr.has('grokky')&&[...cr].filter(id=>['vela','nox','quill','mira','rune'].includes(id)).length===2,JSON.stringify([...cr]));
+  chk('chat circle: first four and Grokky plus two rotating new arrivals (not all ten at once)',cr.size===7&&FIRST.map(n=>n.toLowerCase()).every(id=>cr.has(id))&&cr.has('grokky')&&[...cr].filter(id=>['vela','nox','quill','mira','rune'].includes(id)).length===2,JSON.stringify([...cr]));
 }
 
 console.log(fails?'SOME FAILED':'ALL OK');process.exit(fails?1:0)

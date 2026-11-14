@@ -185,13 +185,14 @@ with sync_playwright() as p:
     if not live:
       chk(nm+': Grokky joins the chat with his own look (spark avatar, ⚡ glyph, accent bubble)',pg.evaluate("!!document.querySelector('.turn.chat.gk .av.spark') && /⚡/.test(document.querySelector('.turn.chat.gk .who').innerText)"))
     pg.goto(url+'#/minds');pg.wait_for_function("document.querySelector('.mcard')",timeout=30000);pg.wait_for_timeout(800)
-    mt=pg.inner_text('#view');chk(nm+': Minds page has ten cards incl. Grokky and the new Grokies',pg.evaluate("document.querySelectorAll('.mcard').length")==10 and 'Grokky' in mt and 'The Provocateur' in mt and 'Vela' in mt and 'The Inward Cartographer' in mt and 'The Grokies' in mt,mt[:250])
+    mt=pg.inner_text('#view');chk(nm+': Minds page has ten cards, Grokky, and a New arrivals section',pg.evaluate("document.querySelectorAll('.mcard').length")==10 and 'Grokky' in mt and 'The Provocateur' in mt and 'Vela' in mt and 'The Cartographer' in mt and 'New arrivals' in mt and 'The Grokies' not in mt and 'Groky' not in mt,mt[:250])
     if not live:
       chk(nm+': Grokky card shows Noticed by (who, when, how) and who has not yet',all(x in mt for x in ['Noticed by','Pip','spoke to them directly','mentioned them','Not yet: Wren, Lumen']) and pg.evaluate("!window.__xss && document.querySelectorAll('.noticed img').length===0"),mt[-900:])
     else: chk(nm+': live Grokky card has a Noticed by section','Noticed by' in mt)
     if not live:
-      chk(nm+': new Groky cards show an Inner View of conclusions, not raw code',all(x in mt for x in ['Inner View','own code and records','not its weights','its own persona entry','mind made of words']) and 'PERSONA ENTRY' not in mt and 'id: vela' not in mt,mt[mt.find('Inner View'):mt.find('Inner View')+400] if 'Inner View' in mt else mt[:200])
-    else: chk(nm+': live new Groky cards have an Inner View section','Inner View' in mt)
+      chk(nm+': new arrival cards show an Inner View of conclusions, not raw code',all(x in mt for x in ['Inner View','own code and records','not its weights','its own persona entry','mind made of words']) and 'PERSONA ENTRY' not in mt and 'id: vela' not in mt,mt[mt.find('Inner View'):mt.find('Inner View')+400] if 'Inner View' in mt else mt[:200])
+      chk(nm+': new arrival bios are talented individuals, not Grokies',all(x in mt for x in ['cartographer and mathematician','night-sky astronomer and poet','storyteller and historian','portrait artist and empath','musician and pattern composer']) and 'Groky' not in mt and 'Grokies' not in mt and 'family of' not in mt.lower())
+    else: chk(nm+': live new arrival cards have an Inner View section','Inner View' in mt and 'New arrivals' in mt and 'Groky' not in mt)
     pg.evaluate("document.querySelector('.mcard.gk').scrollIntoView({block:'start'})");pg.wait_for_timeout(400)
     pg.screenshot(path='/workspace/habitat-grokky-minds-%s%s.png'%(nm,'' if live else '-mock'))
     pg.goto(url+'#/language');pg.wait_for_function("document.querySelector('.terms,.empty')",timeout=30000);pg.wait_for_timeout(800)

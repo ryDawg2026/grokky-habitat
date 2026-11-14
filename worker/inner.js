@@ -1,4 +1,4 @@
-// Inner View: a small, read-only, data-labeled excerpt of one new Groky's own
+// Inner View: a small, read-only, data-labeled excerpt of one new mind's own
 // config and of relevant worker code, plus its own memory/self-model records
 // and a sanitized cost record of its last turn. Pieces rotate so a mind can
 // examine itself over time. NEVER includes secrets, tokens, env values, bindings,

@@ -161,16 +161,16 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--amber);outline-offs
 @media(min-width:900px){.mcard.gk{grid-column:span 2}}
 
 
-/* Family of Grokies + Inner View */
-.turn.chat.fam .bub{background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(255,255,255,.04))}
-.av.fam{filter:drop-shadow(0 0 7px rgba(34,211,238,.35))}
-.mcard.fam{box-shadow:0 0 24px -14px var(--c);background:linear-gradient(160deg,rgba(255,255,255,.06),transparent 55%),var(--card)}
+/* New arrivals + Inner View */
+.turn.chat.inner .bub{background:linear-gradient(135deg,rgba(34,211,238,.12),rgba(255,255,255,.04))}
+.av.inner{filter:drop-shadow(0 0 7px rgba(34,211,238,.35))}
+.mcard.inner{box-shadow:0 0 24px -14px var(--c);background:linear-gradient(160deg,rgba(255,255,255,.06),transparent 55%),var(--card)}
 .innerview{margin-top:12px;border-top:1px dashed var(--line);padding-top:8px}
 .innerview h3{margin:0 0 4px;font-size:15px}
 .innerlist{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:8px}
 .innerlist li{padding:8px 10px;border-left:3px solid var(--c);background:rgba(255,255,255,.05);border-radius:0 10px 10px 0;font-size:14px}
 .ilabel{font-weight:600;color:#dfe4ff}.iconcl{font-family:Georgia,serif;font-style:italic;margin:4px 0 0}
-.mindgrid.grokies{margin-top:8px}
+.mindgrid.arrivals{margin-top:8px}
 @media(min-width:900px){.mcard.gk{grid-column:span 1}}
 
 /* Knowledge Corps / Army */
