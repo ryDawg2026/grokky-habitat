@@ -1,6 +1,6 @@
-:root{--bg:#0b1029;--bg2:#141b45;--card:rgba(255,255,255,.07);--card2:rgba(255,255,255,.11);--line:rgba(255,255,255,.14);--tx:#eef1ff;--mut:#a9b2dd;--teal:#4fd1c5;--amber:#ffb454;--violet:#b794f6;--green:#7bd88f;--r:18px}
+:root{--bg:#0b1029;--bg2:#141b45;--card:rgba(255,255,255,.07);--card2:rgba(255,255,255,.11);--line:rgba(255,255,255,.14);--tx:#eef1ff;--mut:#a9b2dd;--teal:#4fd1c5;--accent:#4fd1c5;--amber:#ffb454;--violet:#b794f6;--green:#7bd88f;--r:18px;--space:1;--font:ui-rounded,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
 *{box-sizing:border-box}html{scroll-behavior:smooth}
-body{margin:0;color:var(--tx);font:16px/1.55 ui-rounded,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;background:radial-gradient(1200px 800px at 15% -10%,#26307a 0%,transparent 60%),radial-gradient(900px 700px at 100% 10%,#0f4a52 0%,transparent 55%),linear-gradient(180deg,var(--bg2),var(--bg) 60%);background-attachment:fixed;min-height:100vh;overflow-x:hidden}
+body{margin:0;color:var(--tx);font:16px/1.55 var(--font);background:radial-gradient(1200px 800px at 15% -10%,#26307a 0%,transparent 60%),radial-gradient(900px 700px at 100% 10%,#0f4a52 0%,transparent 55%),linear-gradient(180deg,var(--bg2),var(--bg) 60%);background-attachment:fixed;min-height:100vh;overflow-x:hidden}
 #bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
 .top,.tabs,main,.foot,.offline{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding-left:16px;padding-right:16px}
 .skip{position:absolute;left:-999px;top:0;background:#fff;color:#000;padding:8px 12px;z-index:9}.skip:focus{left:8px;top:8px}
@@ -16,7 +16,7 @@ body{margin:0;color:var(--tx);font:16px/1.55 ui-rounded,"Segoe UI",system-ui,-ap
 .tabs{display:flex;gap:6px;overflow-x:auto;padding-top:12px;padding-bottom:6px;scrollbar-width:none;position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(11,16,41,.92),rgba(11,16,41,0));backdrop-filter:blur(6px)}
 .tabs::-webkit-scrollbar{display:none}
 .tabs a{flex:none;color:var(--mut);text-decoration:none;padding:8px 14px;border-radius:999px;border:1px solid transparent;font-size:14.5px;transition:.25s}
-.tabs a:hover{color:var(--tx);background:var(--card)}.tabs a.on{color:#0b1029;background:var(--teal);font-weight:600}
+.tabs a:hover{color:var(--tx);background:var(--card)}.tabs a.on{color:#0b1029;background:var(--accent,var(--teal));font-weight:600}
 .offline{margin-top:8px;margin-bottom:0;background:rgba(255,107,122,.12);border:1px solid rgba(255,107,122,.4);border-radius:14px;padding:10px 14px;font-size:14px;max-width:1068px}
 main{padding-top:14px;padding-bottom:30px;outline:none;min-height:60vh}
 h1,h2,h3{font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;font-weight:600;letter-spacing:.2px;line-height:1.2;margin:.2em 0 .4em}
@@ -180,3 +180,30 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--amber);outline-offs
 .soldier h3{margin:4px 0}
 .mission{border-top:4px solid var(--c)}
 .mission.active{box-shadow:0 0 0 1px rgba(232,195,106,.5),0 0 24px -12px #e8c36a}
+
+
+/* Workshop, code map, safety switch, browse reading */
+.mindbanner{margin:8px 0 0;padding:10px 16px;border-radius:14px;background:linear-gradient(135deg,rgba(79,209,197,.18),rgba(255,180,84,.12));border:1px solid var(--line);font-family:Georgia,serif;font-size:18px}
+.featured{margin:18px 0}
+.safetypanel{margin:16px 0;border-color:rgba(255,107,122,.35)}
+.switchstate{display:flex;align-items:center;gap:8px;font-weight:600}
+.codemap{margin:16px 0}
+.mapscroll{overflow-x:auto;margin:8px 0 14px;padding-bottom:4px}
+.mapsvg{display:block;min-width:100%;height:auto;max-height:240px}
+.mapnode{cursor:pointer}
+.mapnode:focus{outline:2px solid var(--accent);outline-offset:2px}
+.tagrow{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.mapchip{appearance:none;border:1px solid var(--line);background:var(--card);color:var(--tx);padding:4px 10px;border-radius:999px;font:12.5px/1.3 var(--font);cursor:pointer}
+.mapchip:hover,.mapchip:focus-visible{border-color:var(--accent);color:#fff}
+.codeex,.appsrc{margin:0;padding:12px 14px;border-radius:12px;background:#0a0d1c;color:#d7defc;font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;overflow:auto;max-height:280px;white-space:pre-wrap;word-break:break-word}
+.codeex .kw,.appsrc .kw{color:#7bd88f}.codeex .st,.appsrc .st{color:#ffb454}.codeex .cm,.appsrc .cm{color:#8b93b8}
+.appstage{margin:10px 0;border-radius:12px;overflow:hidden;border:1px solid var(--line);background:#070a16}
+.appframe{display:block;width:100%;height:260px;border:0;background:#fff}
+.buildcard h3{margin:6px 0 4px}
+.themelayer,.changelog{margin:16px 0}
+.readpanel{margin:22px 0}
+.readbox{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line)}
+.readbox h3{margin:0 0 4px;font-size:15px}
+.readlist{list-style:none;padding:0;margin:6px 0 0;display:grid;gap:4px;font-size:13px;color:var(--mut)}
+.readlist time{margin-right:8px;color:var(--mut)}
+@media(max-width:640px){.appframe{height:220px}.codeex,.appsrc{max-height:220px}}

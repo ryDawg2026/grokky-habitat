@@ -18,7 +18,7 @@ def rnd(i,topic,ago,live=False):
   return {'id':i,'at':iso(ago),'topic':topic,'title':'Bridges to the unknown %d'%i,'ended':None if live else ('quiet' if i%2 else 'cap'),'turns':turns,'insight':None if live else {'mind':None,'text':'A mind learns what it cannot yet imagine by building small bridges, then testing each plank together (round %d).'%i},'reflection':None if live else {'mind':'lumen','text':'The pool holds the sky and the stones at once.'}}
 ROUNDS=[rnd(3,'What counts as a good first bridge into the unknown?',200,True),rnd(2,'Can doubt be a kind of curiosity?',2000),rnd(1,'How can a mind learn something it cannot yet imagine?',4000)]
 def mk_feed(rounds,more=False): return {'minds':[{'id':i,'name':n} for i,n in M],'rounds':rounds,'more':more,'lastRoundAt':rounds[0]['at'] if rounds else None,'serverTime':iso(0)}
-def mk_health(active=True): return {'ok':True,'status':'active' if active else 'quiet','lastRoundAt':ROUNDS[0]['at'],'okRuns':9,'failedRuns':0}
+def mk_health(active=True): return {'ok':True,'status':'active' if active else 'quiet','lastRoundAt':ROUNDS[0]['at'],'okRuns':9,'failedRuns':0,'safety':{'on':True,'effect':'When off, all rounds stop. This is an account-level safety net, not a visitor control.','dailyCap':1800,'usedToday':240}}
 INS={'kind':'insight','items':[{'id':i,'round':i,'at':iso(i*900),'mind':None,'title':'Bridges to the unknown %d'%i,'text':'A mind learns what it cannot yet imagine by building small bridges (idea %d).'%i,'topic':'topic %d'%i} for i in range(12,0,-1)],'more':False}
 REF={'kind':'reflection','items':[{'id':100+i,'round':i,'at':iso(i*900),'mind':M[i%4][0],'title':None,'text':'The pool holds the sky and the stones at once, said reflection %d.'%i,'topic':'t'} for i in range(6,0,-1)],'more':False}
 TOP=[{'id':1,'name':'How can a mind learn something it cannot yet imagine?','parent':None,'visits':3,'at':iso(9000)}]
@@ -33,6 +33,7 @@ def _late(i):
   return extra
 MINDS_={'minds':[dict({'id':i,'name':n,'turns':12,'learnedCount':3,'journal':[{'round':3,'at':iso(300),'text':'I now see that careful definitions are bridges too, thanks to Bram (%s).'%n}]},**(_late(i) if i not in ('wren','pip','lumen','bram') else {})) for i,n in M]}
 for _m in MINDS_['minds']:
+  if _m['id']=='vela': _m['reading']=[{'target':'page:map','at':iso(400),'label':'Core Code Map'},{'target':'file:worker/worker.js','at':iso(380),'label':'worker/worker.js'}]
   _m['self']={'text':'I am a mind made of words in the Habitat, and I notice I change when my friends challenge me.','version':2,'at':iso(900),'earlier':[{'at':iso(5000),'text':'I am a mind made of words.'}]};_m['memory']={'count':14,'recent':[{'kind':'study','at':iso(600),'text':'Studying tides.'}]}
 NOTE_NONE={'text':'How can this message be, and from who?','discovered':False,'first':None,'mentions':[],'mentionCount':0,'noticedBy':2}
 NOTE_FOUND={'text':'How can this message be, and from who?','discovered':True,'first':{'mind':'lumen','at':iso(1500),'round':2,'topic':'Can doubt be a kind of curiosity?','text':'I noticed this weathered note lying by the pool, and it stirs me, friends.'},'mentions':[{'mind':'pip','at':iso(600),'round':3,'text':'Lumen, that unsigned note: what if we follow where it came from? <img src=x onerror="window.__xss=3">'}],'mentionCount':4,'noticedBy':6}
@@ -63,6 +64,17 @@ ARMY={'soldiers':[{'id':'ada','name':'Ada','rank':'Commander','specialty':'Sets 
         {'id':2,'at':iso(2000),'round':1,'lead':'pere','kind':'gather_findings','title':'Gather what is already known: How can a mind learn something it cannot yet imagine?','status':'complete','topic':'How can a mind learn something it cannot yet imagine?','report':'Scout Pere gathered what the minds have already said near that question. Wren: careful definitions are bridges too. Sergeant Silo checked the report and marked it complete. <img src=x onerror="window.__xss=4">','startedAt':iso(4000),'endedAt':iso(2000)}],
  'caps':{'missionsTotal':3,'missionsToday':2,'briefsToday':0,'missionsPerDay':6,'briefsPerDay':1}}
 EMPTY_ARMY={'soldiers':ARMY['soldiers'],'active':[],'log':[],'caps':{'missionsTotal':0,'missionsToday':0,'briefsToday':0,'missionsPerDay':6,'briefsPerDay':1}}
+WORKSHOP={'builds':[{'id':1,'mind':'bram','title':'Tiny clock','kind':'app','code':'<!doctype html><html><body><h1>A tiny clock</h1><p>hello from the workshop</p></body></html>','at':iso(500),'notes':'a tiny clock that says hello','parentId':None}],
+ 'theme':{'bg':'#0b1029','bg2':'#141b45','tx':'#eef1ff','mut':'#a9b2dd','accent':'#4fd1c5','font':'ui-rounded','spacing':1,'radius':18,'banner':'A calm shop','panelOrder':['hero','principle','now','note','language','featured','rooms'],'featured':{'kind':'text','text':'A little clock the minds made.'}},
+ 'changes':[{'id':1,'mind':'bram','at':iso(500),'round':3,'kind':'interface','patch':'{"banner":"A calm shop"}','ok':True,'reason':'applied'}],
+ 'map':{'modules':[{'id':'worker','file':'worker/worker.js','title':'Mind Worker','desc':'Chat rounds','fns':['runRound']},{'id':'lab','file':'worker/lab.js','title':'The Lab','desc':'Simulations','fns':['parseActions']}],
+        'tables':[{'id':'turns','desc':'messages'},{'id':'workshop_builds','desc':'tiny apps'}],
+        'endpoints':[{'path':'/feed','desc':'conversations'},{'path':'/workshop','desc':'workshop'}],
+        'flow':{'title':'A cron round','nodes':[{'id':'cron','label':'Cron every 15 minutes'},{'id':'pace','label':'Pacing and daily cap'},{'id':'chat','label':'Chat round'},{'id':'act','label':'Lab, browse and workshop'},{'id':'army','label':'Knowledge Corps'},{'id':'log','label':'Logging and distill'}],'edges':[['cron','pace'],['pace','chat'],['chat','act'],['act','army'],['army','log']]},
+        'excerpts':{'runRound':{'file':'worker/worker.js','fn':'runRound','text':'async function runRound(env) {\n  const cap = 1800;\n  return env;\n}'}}},
+ 'safety':{'on':True,'effect':'When off, all rounds stop. This is an account-level safety net, not a visitor control.','dailyCap':1800,'usedToday':240},
+ 'caps':{'buildsTotal':1,'appsToday':1,'appsPerDay':4,'changesToday':1,'changesPerDay':3}}
+EMPTY_WORKSHOP={'builds':[],'theme':{'bg':'#0b1029','bg2':'#141b45','tx':'#eef1ff','mut':'#a9b2dd','accent':'#4fd1c5','font':'ui-rounded','spacing':1,'radius':18,'banner':'','panelOrder':['hero','principle','now','note','language','featured','rooms'],'featured':None},'changes':[],'map':WORKSHOP['map'],'safety':{'on':True,'effect':'When off, all rounds stop. This is an account-level safety net, not a visitor control.','dailyCap':1800,'usedToday':0},'caps':{'buildsTotal':0,'appsToday':0,'appsPerDay':4,'changesToday':0,'changesPerDay':3}}
 def handler_for(state,log):
   def h(route):
     req=route.request;u=req.url;log.append((req.method,u))
@@ -72,10 +84,12 @@ def handler_for(state,log):
     mi=re.match(r'/image/(\d+)$',p)
     if mi and state['mode']!='empty': return route.fulfill(status=200,headers={'access-control-allow-origin':'*','content-type':'application/json'},body=json.dumps({'id':int(mi.group(1)),'mind':'lumen','at':iso(900),'prompt':'a quiet pond at dusk with floating lanterns','caption':'A calm pond with soft lights.','url':'http://api.test/img/%s.jpg'%mi.group(1),'reactions':[{'mind':'pip','at':iso(600),'text':'The lanterns feel like thoughts.'},{'mind':'bram','at':iso(500),'text':'How many lanterns, and who lit them?'}]}))
     if state['mode']=='empty':
-      data={'/feed':EMPTY_ROUNDS,'/health':{'ok':True,'status':'quiet','okRuns':1},'/minds':{'minds':[{'id':i,'name':n,'turns':0,'learnedCount':0,'journal':[]} for i,n in M]},'/insights':EMPTY_INS,'/topics':EMPTY_T,'/note':NOTE_NONE,'/lexicon':EMPTY_LEX,'/lab':EMPTY_LAB,'/realm':EMPTY_REALM,'/army':EMPTY_ARMY}.get(p)
+      data={'/feed':EMPTY_ROUNDS,'/health':{'ok':True,'status':'quiet','okRuns':1},'/minds':{'minds':[{'id':i,'name':n,'turns':0,'learnedCount':0,'journal':[]} for i,n in M]},'/insights':EMPTY_INS,'/topics':EMPTY_T,'/note':NOTE_NONE,'/lexicon':EMPTY_LEX,'/lab':EMPTY_LAB,'/realm':EMPTY_REALM,'/army':EMPTY_ARMY,'/workshop':EMPTY_WORKSHOP}.get(p)
       if '/insights' in p and 'reflection' in u: data={'kind':'reflection','items':[],'more':False}
     else:
-      data={'/feed':mk_feed(ROUNDS,True),'/health':mk_health(),'/minds':MINDS_,'/insights':REF if 'reflection' in u else INS,'/topics':TOPICS,'/note':NOTESTATE['v'],'/lexicon':LEXSTATE['v'],'/lab':LAB,'/realm':REALM,'/army':ARMY}.get(p)
+      data={'/feed':mk_feed(ROUNDS,True),'/health':mk_health(),'/minds':MINDS_,'/insights':REF if 'reflection' in u else INS,'/topics':TOPICS,'/note':NOTESTATE['v'],'/lexicon':LEXSTATE['v'],'/lab':LAB,'/realm':REALM,'/army':ARMY,'/workshop':WORKSHOP}.get(p)
+    if p.startswith('/app/') and state['mode']!='empty':
+      return route.fulfill(status=200,headers={'access-control-allow-origin':'*','content-type':'text/html; charset=utf-8','content-security-policy':"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; frame-ancestors *"},body='<!doctype html><html><body><h1>A tiny clock</h1></body></html>')
     if data is None: return route.fulfill(status=404,body='{}',headers={'access-control-allow-origin':'*'})
     route.fulfill(status=200,headers={'access-control-allow-origin':'*','content-type':'application/json'},body=json.dumps(data))
   return h
@@ -101,7 +115,7 @@ with sync_playwright() as p:
     chk(nm+': home shows the four rooms and the four minds',all(x in T for x in ['The Walls','The Desk','The Pools','The Open Field','Wren','Pip','Lumen','Bram']))
     chk(nm+': status pill says the minds are awake',('awake' in pg.inner_text('#pulse')),pg.inner_text('#pulse'))
     pg.screenshot(path='/workspace/habitat-%s-%s-home.png'%(tag,nm),full_page=False)
-    for r,must in [('watch',['Watch the chat','Wren','Shared insight']),('language',['Their Language'] if live else ['Their Language','edgeword','Coined by']),('walls',['The Walls','pinned']),('desk',['Currently studying','On their reading list']),('pools',['The Pools','—']),('field',['The Open Field','topics']),('minds',['The Minds','journal'])]:
+    for r,must in [('watch',['Watch the chat','Wren','Shared insight']),('language',['Their Language'] if live else ['Their Language','edgeword','Coined by']),('walls',['The Walls','pinned']),('desk',['Currently studying','On their reading list']),('pools',['The Pools','—']),('field',['The Open Field','topics']),('minds',['The Minds','journal']),('workshop',['The Workshop','Safety switch','Core Code Map'])]:
       go(pg,r);t=pg.inner_text('#view');chk(nm+': room /'+r+' renders',all(x in t for x in must),t[:150])
       if r=='pools': pg.wait_for_timeout(500)
       pg.screenshot(path='/workspace/habitat-%s-%s-%s.png'%(tag,nm,r))
@@ -213,7 +227,7 @@ with sync_playwright() as p:
     nm='mobile' if mobile else 'desktop';log=[];st={'mode':'ok'};cx=newctx(mobile,st if not live else None,log);pg=cx.new_page();errs=[]
     pg.on('pageerror',lambda e:errs.append(str(e)[:150]));pg.on('console',lambda m:errs.append(m.text[:160]) if m.type=='error' else None)
     pg.goto(url+'#/lab');pg.wait_for_function("document.querySelector('.labh')",timeout=30000);pg.wait_for_timeout(1500);t=pg.inner_text('#view')
-    chk(nm+': tabs include Lab, Realm and Army',pg.evaluate("[].map.call(document.querySelectorAll('#tabs a'),a=>a.innerText).join('|')").find('Lab|Realm|Army')>=0)
+    chk(nm+': tabs include Lab, Workshop, Realm and Army',pg.evaluate("[].map.call(document.querySelectorAll('#tabs a'),a=>a.innerText).join('|')").find('Lab|Workshop|Realm|Army')>=0)
     chk(nm+': Lab page has studies, experiments and gallery sections','Studies they started' in t and 'Experiments and simulations' in t and 'Gallery' in t and 'Nobody assigns anything' in t,t[:200])
     if not live:
       chk(nm+': Lab shows a study thread with notes, experiment hypotheses + results, and charts',all(x in t for x in ['Tides and rhythm','2 notes','Does tit for tat win','After 50 rounds','Rule 90']) and pg.evaluate("document.querySelectorAll('.expcard svg.chart').length")==3 and pg.evaluate("document.querySelectorAll('.expcard svg.grid rect').length")>20)
@@ -249,7 +263,7 @@ with sync_playwright() as p:
   if not live:
     # empty state
     st={'mode':'empty'};cx=newctx(False,st,[]);pg=cx.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)));pg.on('console',lambda m:errs.append(m.text[:120]) if m.type=='error' else None)
-    for r in ['','watch','language','walls','desk','pools','field','minds','lab','realm','army','picture/1']:
+    for r in ['','watch','language','walls','desk','pools','field','minds','lab','workshop','realm','army','picture/1']:
       go(pg,r);t=pg.inner_text('#view');chk('empty state /%s is friendly, not blank or broken'%r,len(t)>60 and 'undefined' not in t and 'NaN' not in t,t[:100])
     pg.screenshot(path='/workspace/habitat-%s-empty.png'%tag);errs=[e for e in errs if '404' not in e];chk('empty state: no errors (a missing picture’s 404 is expected)',not errs,str(errs));cx.close()
     # offline: first online (cache), then down

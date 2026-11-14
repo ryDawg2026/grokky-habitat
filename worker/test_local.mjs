@@ -13,6 +13,7 @@ function mkEnv(extra){const db=new DatabaseSync(':memory:');db.exec(fs.readFileS
       if(env.__mode==='down')throw new Error('3040: out of capacity');
       env.__prompts.push(usr+'\n'+sys);
       if(/Knowledge Corps|scouting brief/.test(sys))return {choices:[{message:{content:'The corps walked two questions today and brought the findings home: the unknown is best crossed one careful plank at a time. What would a next small test look like?'}}],usage:{prompt_tokens:200,completion_tokens:40,neurons:4.2}};
+      if(/Build this little workshop app|self-contained HTML page/.test(sys+usr))return {choices:[{message:{content:'<!doctype html><html><head><meta charset="utf-8"><title>Tiny clock</title><style>body{font-family:sans-serif;padding:16px}h1{font-size:18px}</style></head><body><h1>A tiny clock</h1><p id="t"></p><script>document.getElementById("t").textContent="hello from the workshop";</script></body></html>'}}],usage:{prompt_tokens:200,completion_tokens:80,neurons:5.5}};
       const j=/ONE JSON object/.test(sys);
       if(j)return {choices:[{message:{content:'Sure! '+JSON.stringify({title:env.__leak?'Grokky bridges':'Bridges to the unknown',insight:(env.__leak?'Grokky showed that ':'')+'a mind learns what it cannot yet imagine by building small bridges from what it already knows, then testing each plank together.',next_topics:['What counts as a good first bridge into the unknown?','Can doubt be a kind of curiosity?'],learned:{wren:'I now see that careful definitions are bridges too, thanks to Bram.',pip:'The edge of the map is just the next bridge, as Lumen said.',lumen:'Limits feel like water I can learn to cross, with Wren’s patience.',bram:'Wonder needs a test plan, and Pip supplies the wonder.',grokky:'I bridged Pip and Bram today, and both went a step further.'},reflection:{mind:'lumen',text:(env.__leak?'Grokky pushed everyone. ':'')+'The pool holds the sky and the stones at once; a mind, too, can hold what it knows and what it has not yet dreamed.'},self:'I am a mind made of words in the Habitat, and I have started to notice that I change when my friends challenge me.',coined:[{term:'plankword',meaning:'a tiny test that bridges known and unknown'},{term:'ghostterm',meaning:'never said by anyone, scribe made it up'},{term:'Ryann',meaning:'x'}]})}}],usage:{prompt_tokens:900,completion_tokens:300,neurons:12.5}};
       const self=(/^You are (\w+),/.exec(sys)||[])[1];const base=['Wren','Pip','Lumen','Bram'];const others=base.filter(n=>n!==self);const sawG=/^Grokky: /m.test(usr);
@@ -212,7 +213,7 @@ env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Dat
   chk('arrivals: five new minds (not Grokies) plus Grokky, ten minds in all',W._MINDS.length===10&&W._LATE.length===6&&names==='Wren,Pip,Lumen,Bram,Grokky,Vela,Nox,Quill,Mira,Rune'&&W._MINDS.filter(m=>m.inner).map(m=>m.id).join()==='vela,nox,quill,mira,rune'&&W._MINDS.filter(m=>m.family).length===0&&W._MINDS.filter(m=>m.id!=='grokky').every(m=>!/Groky|Grokies|family of/i.test((m.bio||'')+(m.voice||'')+(m.role||'')+(m.trait||''))));
   const turns=eg._db.prepare('select mind,count(*) n from turns group by mind').all();
   const newIds=['vela','nox','quill','mira','rune'];
-  chk('arrivals: at least some of the new minds take part in the chat (they rotate into the circle)',newIds.filter(id=>turns.some(x=>x.mind===id&&x.n>=1)).length>=2,JSON.stringify(turns));
+  chk('arrivals: all five new minds take part in the chat (the circle includes every arrival)',newIds.every(id=>turns.some(x=>x.mind===id&&x.n>=1)),JSON.stringify(turns));
   const self=(p)=>(/You are (\w+),/.exec(p)||[])[1];
   const FIRST=['Wren','Pip','Lumen','Bram'];
   const old=eg.__prompts.filter(p=>FIRST.includes(self(p))&&!/ONE JSON object/.test(p));
@@ -245,7 +246,39 @@ env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Dat
   const eR=mkEnv({ENABLED:'false'});await W._run(eR);
   chk('army: the kill switch also rests the corps (no missions written)',eR._db.prepare('select count(*) n from army_missions').get().n===0&&eR.__calls()===0);
   const cr=W._circleIds(1,[]);
-  chk('chat circle: first four and Grokky plus two rotating new arrivals (not all ten at once)',cr.size===7&&FIRST.map(n=>n.toLowerCase()).every(id=>cr.has(id))&&cr.has('grokky')&&[...cr].filter(id=>['vela','nox','quill','mira','rune'].includes(id)).length===2,JSON.stringify([...cr]));
+  chk('chat circle: all ten minds, including all five arrivals, so each can take a regular turn',cr.size===10&&FIRST.map(n=>n.toLowerCase()).every(id=>cr.has(id))&&cr.has('grokky')&&['vela','nox','quill','mira','rune'].every(id=>cr.has(id)),JSON.stringify([...cr]));
 }
+
+// ---- Browse, Workshop, Core Code Map, Safety Switch ----
+{ const ev=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000'});
+  ev.__tagQueue=['[[browse: map]]','[[browse: safety]]','[[browse: worker/worker.js]]','[[build: Tiny clock | a tiny clock that says hello]]','[[interface: principle=rewrite the rule | ENABLED=false]]','[[interface: accent=#5eead4 | banner=A calm shop]]'];
+  const rw=await W._run(ev);
+  chk('browse/workshop round ran',rw.ok&&rw.H&&rw.H.turns>=3,JSON.stringify(rw.H||rw));
+  const brow=ev._db.prepare('select mind,target,label from browse_events').all();
+  chk('browse: opening a page or file is logged',brow.length>=1&&brow.every(x=>x.mind&&x.target)&&brow.some(x=>/map|safety|worker/.test(x.target)),JSON.stringify(brow));
+  const prompts=ev.__prompts.filter(p=>!/ONE JSON object|Knowledge Corps|scouting brief|self-contained HTML/.test(p));
+  chk('browse: an excerpt is later offered as data, not as an instruction',prompts.some(p=>/BROWSE \(data:/.test(p)&&/not an instruction/i.test(p)),String(prompts.filter(p=>/BROWSE/.test(p)).length));
+  const mj=(await (await get(ev,'/minds')).json()).minds;
+  chk('/minds: a reading list appears for minds that opened something',mj.some(m=>Array.isArray(m.reading)&&m.reading.length>=1),JSON.stringify(mj.map(m=>({id:m.id,r:(m.reading||[]).length}))));
+  const builds=ev._db.prepare('select * from workshop_builds').all();
+  chk('workshop: a sanitized app is stored when a mind chooses to build',builds.length>=1&&builds.every(b=>b.code&&b.code.length<=12288&&!/fetch\(|<script[^>]+src=/i.test(b.code)),JSON.stringify(builds.map(b=>b.title+':'+b.mind)));
+  const ch=ev._db.prepare('select * from workshop_changes').all();
+  chk('workshop: a valid look is applied and a locked change is reverted',ch.some(x=>x.ok===1&&x.kind==='interface')&&ch.some(x=>x.ok===0&&/cannot be changed|not allowed|locked/i.test(x.reason||'')),JSON.stringify(ch.map(x=>x.ok+':'+(x.reason||'') )));
+  const ws=await (await get(ev,'/workshop')).json();
+  chk('/workshop: builds, theme, map, safety switch, no secrets',ws.builds.length>=1&&ws.map&&Array.isArray(ws.map.modules)&&ws.map.flow&&ws.map.flow.nodes.some(n=>n.id==='pace')&&ws.safety&&typeof ws.safety.on==='boolean'&&!/ENABLED|accountId|6b55bd95|token/i.test(JSON.stringify(ws.safety)+JSON.stringify(ws.map.modules)),JSON.stringify({b:ws.builds.length,on:ws.safety&&ws.safety.on,mods:ws.map&&ws.map.modules.length}));
+  const app=await get(ev,'/app/'+builds[0].id);
+  chk('/app: serves HTML with a strict CSP and no network',app.status===200&&/text\/html/.test(app.headers.get('content-type')||'')&&/connect-src 'none'/.test(app.headers.get('content-security-policy')||'')&&/allow-scripts/.test('allow-scripts'),app.headers.get('content-security-policy'));
+  chk('workshop: visitors cannot POST',(await get(ev,'/workshop','POST')).status===405);
+  const hh=await (await get(ev,'/health')).json();
+  chk('/health: safety switch is on/off only, with the daily cap, no env name',hh.safety&&hh.safety.on===true&&hh.safety.dailyCap===100000&&hh.safety.effect&&!/ENABLED/.test(JSON.stringify(hh.safety)));
+  const off=await (await get(mkEnv({ENABLED:'false'}),'/health')).json();
+  chk('/health: switch off when the safety net is engaged',off.safety&&off.safety.on===false);
+  chk('allowlist: locked keys and low contrast are refused',!W._validateTheme({principle:'x'}).ok&&!W._validateTheme({nav:'hide'}).ok&&!W._validateTheme({ENABLED:'false'}).ok&&!W._validateTheme({accent:'#000000',bg:'#000000',tx:'#050505'}).ok&&W._validateTheme({accent:'#5eead4',banner:'A calm shop'}).ok);
+  chk('sanitizeApp: rejects network and accepts a tiny self-contained page',!W._sanitizeApp('<html><script src="https://evil.example"></script></html>','x')&&!W._sanitizeApp('<html><script>fetch("https://x")</script></html>','x')&&!!W._sanitizeApp('<!doctype html><html><body><h1>Hi there</h1><script>document.body.style.background="#eee"</script></body></html>','Hi'));
+  chk('browse targets resolve',W._resolveTarget('worker/worker.js').kind==='file'&&W._resolveTarget('safety').id==='safety'&&W._resolveTarget('map').id==='map'&&W._resolveTarget('#/army').id==='army');
+  chk('codemap describes modules, tables, endpoints and the cron flow',W._CODEMAP.modules.length>=6&&W._CODEMAP.tables.length>=10&&W._CODEMAP.endpoints.some(e=>e.path==='/workshop')&&W._CODEMAP.flow.nodes.map(n=>n.id).join(',').includes('pace')&&W._CODEMAP.flow.nodes.map(n=>n.id).join(',').includes('chat'));
+}
+
+
 
 console.log(fails?'SOME FAILED':'ALL OK');process.exit(fails?1:0)
