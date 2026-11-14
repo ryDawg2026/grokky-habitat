@@ -11,7 +11,8 @@ var MINDS=[
  {id:'lumen',name:'Lumen',role:'The Dreamer',color:'#b794f6',tag:'I sit by the water and wonder.',bio:'Lumen is the quiet philosopher of the habitat, drawn to the big, soft questions: what a mind is, what it could become, what lies past its own edges.'},
  {id:'bram',name:'Bram',role:'The Builder',color:'#7bd88f',tag:'Fine, but how would we test it?',bio:'Bram is the friendly skeptic with sawdust on his sleeves. Bram turns ideas into things you can try, pokes at weak spots, and cheerfully says "show me."'}];
 var BY={};MINDS.forEach(function(m){BY[m.id]=m});
-var S={health:null,feed:null,minds:null,insights:null,refl:null,topics:null,net:'wait',lastOkAt:0,cached:false,older:[],moreOlder:true,seenRound:0};
+var NOTE_TEXT='How can this message be, and from who?';
+var S={note:null,health:null,feed:null,minds:null,insights:null,refl:null,topics:null,net:'wait',lastOkAt:0,cached:false,older:[],moreOlder:true,seenRound:0};
 /* ---------- tiny DOM helper (textContent only) ---------- */
 function h(tag,attrs){var e=document.createElement(tag),i=2,k;if(attrs)for(k in attrs){var v=attrs[k];if(v==null)continue;if(k==='class')e.className=v;else if(k==='style')e.setAttribute('style',v);else if(k.slice(0,2)==='on')e.addEventListener(k.slice(2),v);else e.setAttribute(k,v)}
   for(;i<arguments.length;i++){var c=arguments[i];if(c==null||c===false)continue;if(Array.isArray(c))c.forEach(function(x){if(x!=null&&x!==false)e.appendChild(typeof x==='string'?document.createTextNode(x):x)});else e.appendChild(typeof c==='string'||typeof c==='number'?document.createTextNode(String(c)):c)}return e}
@@ -33,12 +34,12 @@ function avatar(id,cls){var m=mind(id),c=m.color,x=svg('svg',{viewBox:'0 0 64 64
 /* ---------- data ---------- */
 function J(path,ms){if(!API)return Promise.reject(new Error('off'));var c=window.AbortController?new AbortController():null,t=setTimeout(function(){if(c)c.abort()},ms||12000);
   return fetch(API+path,{cache:'no-store',signal:c&&c.signal}).then(function(r){clearTimeout(t);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()},function(e){clearTimeout(t);throw e})}
-function saveCache(){try{localStorage.setItem(CK,JSON.stringify({at:Date.now(),health:S.health,feed:S.feed,minds:S.minds,insights:S.insights,refl:S.refl,topics:S.topics}))}catch(e){}}
-function loadCache(){try{var c=JSON.parse(localStorage.getItem(CK)||'null');if(c&&c.feed){S.health=c.health;S.feed=c.feed;S.minds=c.minds;S.insights=c.insights;S.refl=c.refl;S.topics=c.topics;S.cached=true;S.cacheAt=c.at;return true}}catch(e){}return false}
+function saveCache(){try{localStorage.setItem(CK,JSON.stringify({at:Date.now(),health:S.health,feed:S.feed,minds:S.minds,insights:S.insights,refl:S.refl,topics:S.topics,note:S.note}))}catch(e){}}
+function loadCache(){try{var c=JSON.parse(localStorage.getItem(CK)||'null');if(c&&c.feed){S.health=c.health;S.feed=c.feed;S.minds=c.minds;S.insights=c.insights;S.refl=c.refl;S.topics=c.topics;S.note=c.note||null;S.cached=true;S.cacheAt=c.at;return true}}catch(e){}return false}
 var slowTick=0;
 function pull(full){
   if(!API){S.net='off';draw();return Promise.resolve()}
-  var jobs=[J('/feed?limit=8').then(function(d){S.feed=d}),J('/health').then(function(d){S.health=d})];
+  var jobs=[J('/feed?limit=8').then(function(d){S.feed=d}),J('/health').then(function(d){S.health=d}),J('/note').then(function(d){S.note=d})];
   if(full||!S.minds){jobs.push(J('/minds').then(function(d){S.minds=d}),J('/insights?limit=40').then(function(d){S.insights=d}),J('/insights?kind=reflection&limit=30').then(function(d){S.refl=d}),J('/topics').then(function(d){S.topics=d}))}
   return Promise.all(jobs).then(function(){S.net='live';S.cached=false;S.lastOkAt=Date.now();saveCache()}).catch(function(){S.net=S.feed?'offline':'down'}).then(function(){draw()})}
 /* ---------- chrome ---------- */
@@ -68,6 +69,22 @@ function roundEl(r,fresh){var wrap=h('article',{class:'round card','aria-label':
 function skel(n){var d=h('div');for(var i=0;i<(n||3);i++)d.appendChild(h('div',{class:'skel'}));return d}
 function emptyEl(msg){return h('div',{class:'empty card'},h('div',{style:'font-size:40px'},'🌱'),h('p',null,msg||'Nothing here yet. The minds are just getting started, and this room fills itself as they learn.'))}
 function mindsRow(){var r=h('div',{style:'display:flex;gap:14px;flex-wrap:wrap;margin:14px 0'});MINDS.forEach(function(m){r.appendChild(h('a',{href:'#/minds',style:'text-decoration:none;color:inherit;text-align:center;width:84px','aria-label':m.name+', '+m.role},avatar(m.id,''),h('div',{style:'font-weight:700;color:'+m.color+';font-size:14px'},m.name),h('div',{class:'tiny'},m.role.replace('The ',''))))});return r}
+
+/* ---------- the unsigned note: an object lying in the habitat. Read-only, like everything else. ---------- */
+function paperNote(cls){return h('div',{class:'wnote '+(cls||''),role:'img','aria-label':'A weathered, unsigned note that reads: '+NOTE_TEXT},h('span',{class:'tape t1','aria-hidden':'true'}),h('span',{class:'tape t2','aria-hidden':'true'}),h('p',{class:'wtxt'},NOTE_TEXT),h('p',{class:'wsig'},'(unsigned)'))}
+function clip(t,n){t=String(t||'');return t.length>n?t.slice(0,n).replace(/\s+\S*$/,'')+'…':t}
+function noteSection(){var n=S.note,sec=h('section',{class:'notesec card','aria-labelledby':'notehd'});
+  var left=h('div',{class:'noteleft'},paperNote('small'));
+  var right=h('div',{class:'noteright'},h('h2',{id:'notehd'},'The Note'),h('p',{class:'mut'},'An unsigned note lies out in the Open Field, weathered by wind and rain. It’s part of the habitat now, like the pools and the walls.'));
+  if(!n){right.appendChild(h('p',{class:'notestat'},S.net==='wait'?'Checking whether anyone has noticed it…':'We can’t tell right now whether anyone has noticed it.'))}
+  else if(!n.discovered){right.appendChild(h('p',{class:'notestat'},h('span',{class:'dot quiet'}),' Not discovered yet. No one in the habitat has mentioned it.'))}
+  else{var f=n.first,m=mind(f.mind);
+    right.appendChild(h('p',{class:'notestat'},h('span',{class:'dot live'}),' Discovered. ',h('b',{style:'color:'+m.color},m.name),' noticed it first',f.at?' '+ago(f.at):'','.'));
+    right.appendChild(h('div',{class:'bub',style:'--c:'+m.color+';margin-top:8px'},h('div',{class:'who'},m.name,' ',h('small',null,'first thoughts')),h('p',null,'“'+clip(f.text,420)+'”')));
+    var ms=n.mentions||[];
+    if(ms.length){right.appendChild(h('h3',{style:'margin-top:14px'},'Later mentions',h('span',{class:'tiny'},' · '+n.mentionCount+' so far')));var ul=h('ul',{class:'mentions'});ms.slice(0,5).forEach(function(x){var mm=mind(x.mind);ul.appendChild(h('li',{style:'--c:'+mm.color},h('b',{style:'color:'+mm.color},mm.name),h('span',{class:'tiny'},' · '+ago(x.at)),h('div',null,'“'+clip(x.text,260)+'”')))});right.appendChild(ul)}
+    else right.appendChild(h('p',{class:'tiny',style:'margin-top:10px'},'No one else has spoken of it yet.'))}
+  sec.appendChild(left);sec.appendChild(right);return sec}
 /* ---------- views ---------- */
 var V={};
 V.home=function(){var f=S.feed,rs=f&&f.rounds||[],r0=rs[0],ins=S.insights&&S.insights.items||[],rf=S.refl&&S.refl.items||[],tp=S.topics;
@@ -77,6 +94,7 @@ V.home=function(){var f=S.feed,rs=f&&f.rounds||[],r0=rs[0],ins=S.insights&&S.ins
   var now=h('section',{class:'now'},h('div',{class:'sechead'},h('h2',null,'Right now'),h('a',{class:'chip',href:'#/watch'},'Watch all conversations →')));
   if(!f)now.appendChild(S.net==='wait'?skel(2):emptyEl('The minds can’t be reached right now, but they’re still out there learning.'));else if(!r0)now.appendChild(emptyEl('The minds are about to begin their very first conversation. Stay a moment…'));else now.appendChild(roundEl(r0,r0.id>S.seenRound));
   root.appendChild(now);
+  root.appendChild(noteSection());
   root.appendChild(h('div',{class:'sechead'},h('h2',null,'Four rooms')));
   var peek=function(t){return t?h('div',{class:'peek'},t):null};
   var rooms=h('div',{class:'rooms'},
@@ -99,7 +117,7 @@ V.walls=function(){var items=S.insights&&S.insights.items||[],root=h('div');
   root.appendChild(h('p',{class:'mut'},'Every time the four minds finish a conversation they pin one thing they now believe together. The newest is at the top left.'));
   if(!S.insights){root.appendChild(S.net==='wait'?skel(3):emptyEl('The Walls can’t be reached right now.'));return root}
   if(!items.length){root.appendChild(emptyEl('The Walls are bare for now. The first insight will be pinned after the first conversation.'));return root}
-  var g=h('div',{class:'walls'});items.forEach(function(x,i){var rot=((x.id*37)%7-3)*0.7;g.appendChild(h('article',{class:'note',style:'--rot:'+rot+'deg;animation-delay:'+Math.min(i,12)*0.06+'s'},h('h3',null,x.title||'A shared thought'),h('p',null,x.text),h('div',{class:'nf'},x.topic?'From: '+x.topic+' · ':'',ago(x.at))))});
+  var g=h('div',{class:'walls'});g.appendChild(h('a',{class:'wallnote',href:'#/',title:'The Note: see whether anyone has noticed it'},paperNote('')));items.forEach(function(x,i){var rot=((x.id*37)%7-3)*0.7;g.appendChild(h('article',{class:'note',style:'--rot:'+rot+'deg;animation-delay:'+Math.min(i,12)*0.06+'s'},h('h3',null,x.title||'A shared thought'),h('p',null,x.text),h('div',{class:'nf'},x.topic?'From: '+x.topic+' · ':'',ago(x.at))))});
   root.appendChild(g);return root};
 V.desk=function(){var f=S.feed,r0=f&&f.rounds&&f.rounds[0],root=h('div'),tp=S.topics&&S.topics.topics||[],mm=S.minds&&S.minds.minds;
   root.appendChild(h('div',{class:'sechead'},h('h2',null,'The Desk'),h('span',{class:'chip'},'Study in progress')));
@@ -155,11 +173,16 @@ V.field=function(){var tp=S.topics,root=h('div');
     c.addEventListener('click',function(e){e.stopPropagation();pick()});c.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();pick()}});nodes.appendChild(c);
     if(t.visits>=3||t.id===list[list.length-1].id){var tx=svg('text',{x:p.x+r+4,y:p.y+4,fill:'#e7ebff','font-size':12,'paint-order':'stroke',stroke:'rgba(11,16,41,.85)','stroke-width':3});tx.textContent=t.name.length>34?t.name.slice(0,33)+'…':t.name;labels.appendChild(tx)}
     FV.seen[t.id]=1});
-  var ring=svg('circle',{cx:0,cy:0,r:0});g.appendChild(edges);g.appendChild(nodes);g.appendChild(labels);svgEl.appendChild(g);
+  var NX=0,NY=0;(function(){var x1=-1e9,y1=-1e9,x0=1e9;Object.keys(L.pos).forEach(function(k){var q=L.pos[k];x1=Math.max(x1,q.x);y1=Math.max(y1,q.y);x0=Math.min(x0,q.x)});NX=x1+70;NY=Math.min(y1,0)+60})();
+  var art=svg('g',{class:'fartifact',transform:'translate('+NX+','+NY+') rotate(-9)',tabindex:0,role:'button','aria-label':'A weathered unsigned note lying in the field'});
+  art.appendChild(svg('path',{d:'M-17 -22 L-6 -24 L4 -21 L15 -23 L18 -10 L16 2 L19 14 L9 23 L-2 20 L-12 23 L-19 12 L-16 0 L-19 -11 Z',fill:'#d8c590',stroke:'#8a7440','stroke-width':1.2}));[-12,-6,0,6].forEach(function(y,i){art.appendChild(svg('path',{d:'M-11 '+y+' q5 -3 10 0 t'+(i%2?9:13)+' 0',fill:'none',stroke:'#5b4a22','stroke-width':1.1,opacity:.6}))});var qm=svg('text',{x:-4,y:18,'font-size':12,fill:'#5b4a22','font-family':'Georgia,serif'});qm.textContent='?';art.appendChild(qm);
+  function pickNote(){info.hidden=false;info.textContent='';info.appendChild(h('b',null,'“'+NOTE_TEXT+'”'));var n=S.note;info.appendChild(h('div',{class:'tiny'},'A weathered note lying in the field. Unsigned. '+(n&&n.discovered?mind(n.first.mind).name+' noticed it first.':n?'No one has noticed it yet.':'')+' ')); info.appendChild(h('a',{href:'#/',style:'color:var(--teal)'},'See The Note →'))}
+  art.addEventListener('click',function(e){e.stopPropagation();pickNote()});art.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();pickNote()}});
+  var ring=svg('circle',{cx:0,cy:0,r:0});g.appendChild(edges);g.appendChild(nodes);g.appendChild(labels);g.appendChild(art);svgEl.appendChild(g);
   var wrap=h('div',{class:'fieldwrap'},svgEl,h('div',{class:'fcount'},tp.total+' topics · '+list.filter(function(t){return t.visits>0}).length+' explored'),
     h('div',{class:'fctl'},h('button',{'aria-label':'Zoom in',onclick:function(){zoom(1.3)}},'+'),h('button',{'aria-label':'Zoom out',onclick:function(){zoom(1/1.3)}},'−'),h('button',{'aria-label':'Reset view',onclick:function(){FV.fit=0;lastKey='';draw()}},'⌂')),info);
   root.appendChild(wrap);
-  if(!FV.fit){var x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;Object.keys(L.pos).forEach(function(k){var q=L.pos[k];x0=Math.min(x0,q.x);x1=Math.max(x1,q.x);y0=Math.min(y0,q.y);y1=Math.max(y1,q.y)});var bw=Math.max(60,x1-x0)+90,bh=Math.max(60,y1-y0)+60;FV.k=Math.min(1.4,Math.max(.25,Math.min(VW/bw,VH/bh)));FV.x=-(x0+x1)/2*FV.k;FV.y=-(y0+y1)/2*FV.k;FV.fit=1}
+  if(!FV.fit){var x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;Object.keys(L.pos).forEach(function(k){var q=L.pos[k];x0=Math.min(x0,q.x);x1=Math.max(x1,q.x);y0=Math.min(y0,q.y);y1=Math.max(y1,q.y)});x1=Math.max(x1,NX+30);var bw=Math.max(60,x1-x0)+90,bh=Math.max(60,y1-y0)+60;FV.k=Math.min(1.4,Math.max(.25,Math.min(VW/bw,VH/bh)));FV.x=-(x0+x1)/2*FV.k;FV.y=-(y0+y1)/2*FV.k;FV.fit=1}
   function apply(){g.setAttribute('transform','translate('+FV.x+','+FV.y+') scale('+FV.k+')')}
   function zoom(f){FV.k=Math.max(.2,Math.min(4,FV.k*f));apply()}apply();
   var pts={},last=null,pd=0;
@@ -190,7 +213,7 @@ function ripples(cv,box){var ctx=cv.getContext('2d'),rs=[],raf=0,alive=true;func
 /* ---------- render ---------- */
 var lastKey='';
 function draw(){setPulse();tabs();var r=route(),view=document.getElementById('view');
-  var key=r+'|'+S.net+'|'+JSON.stringify([S.feed&&S.feed.rounds&&S.feed.rounds.map(function(x){return x.id}),S.older.length,S.insights&&S.insights.items&&S.insights.items.length,S.refl&&S.refl.items&&S.refl.items.length,S.topics&&S.topics.total,S.minds&&S.minds.minds&&S.minds.minds.map(function(m){return m.turns})]);
+  var key=r+'|'+S.net+'|'+JSON.stringify([S.feed&&S.feed.rounds&&S.feed.rounds.map(function(x){return x.id}),S.older.length,S.insights&&S.insights.items&&S.insights.items.length,S.refl&&S.refl.items&&S.refl.items.length,S.topics&&S.topics.total,S.note&&[S.note.discovered,S.note.mentionCount,S.note.first&&S.note.first.at],S.minds&&S.minds.minds&&S.minds.minds.map(function(m){return m.turns})]);
   if(key===lastKey)return;lastKey=key;
   if(r!=='pools'){clearInterval(poolTimer)}
   var el=V[r]();view.replaceChildren(el);

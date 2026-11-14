@@ -9,3 +9,5 @@ CREATE TABLE IF NOT EXISTS usage_day(day TEXT PRIMARY KEY, neurons REAL NOT NULL
 CREATE INDEX IF NOT EXISTS idx_turns_round ON turns(round_id);
 CREATE INDEX IF NOT EXISTS idx_ins_kind ON insights(kind,id);
 CREATE INDEX IF NOT EXISTS idx_journal_mind ON journal(mind,id);
+CREATE TABLE IF NOT EXISTS note_events(id INTEGER PRIMARY KEY AUTOINCREMENT, round_id INTEGER, t INTEGER, mind TEXT NOT NULL, kind TEXT NOT NULL, text TEXT);
+CREATE INDEX IF NOT EXISTS idx_note_kind ON note_events(kind,id);

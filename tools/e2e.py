@@ -22,17 +22,20 @@ TOP=[{'id':1,'name':'How can a mind learn something it cannot yet imagine?','par
 for i in range(2,31): TOP.append({'id':i,'name':'Question number %d about the edge of the map?'%i,'parent':max(1,i//2) if i%5 else 1,'visits':(i%4),'at':iso(8000-i*100)})
 TOPICS={'total':len(TOP),'topics':TOP}
 MINDS_={'minds':[{'id':i,'name':n,'turns':12,'learnedCount':3,'journal':[{'round':3,'at':iso(300),'text':'I now see that careful definitions are bridges too, thanks to Bram (%s).'%n}]} for i,n in M]}
+NOTE_NONE={'text':'How can this message be, and from who?','discovered':False,'first':None,'mentions':[],'mentionCount':0,'noticedBy':2}
+NOTE_FOUND={'text':'How can this message be, and from who?','discovered':True,'first':{'mind':'lumen','at':iso(1500),'round':2,'topic':'Can doubt be a kind of curiosity?','text':'I noticed this weathered note lying by the pool, and it stirs me, friends.'},'mentions':[{'mind':'pip','at':iso(600),'round':3,'text':'Lumen, that unsigned note: what if we follow where it came from? <img src=x onerror="window.__xss=3">'}],'mentionCount':4,'noticedBy':6}
 EMPTY_ROUNDS=mk_feed([]);EMPTY_INS={'kind':'insight','items':[],'more':False};EMPTY_T={'total':0,'topics':[]}
+NOTESTATE={'v':NOTE_NONE}
 def handler_for(state,log):
   def h(route):
     req=route.request;u=req.url;log.append((req.method,u))
     if state['mode']=='down': return route.abort()
     p=re.sub(r'https?://[^/]+','',u).split('?')[0]
     if state['mode']=='empty':
-      data={'/feed':EMPTY_ROUNDS,'/health':{'ok':True,'status':'quiet','okRuns':1},'/minds':{'minds':[{'id':i,'name':n,'turns':0,'learnedCount':0,'journal':[]} for i,n in M]},'/insights':EMPTY_INS,'/topics':EMPTY_T}.get(p)
+      data={'/feed':EMPTY_ROUNDS,'/health':{'ok':True,'status':'quiet','okRuns':1},'/minds':{'minds':[{'id':i,'name':n,'turns':0,'learnedCount':0,'journal':[]} for i,n in M]},'/insights':EMPTY_INS,'/topics':EMPTY_T,'/note':NOTE_NONE}.get(p)
       if '/insights' in p and 'reflection' in u: data={'kind':'reflection','items':[],'more':False}
     else:
-      data={'/feed':mk_feed(ROUNDS,True),'/health':mk_health(),'/minds':MINDS_,'/insights':REF if 'reflection' in u else INS,'/topics':TOPICS}.get(p)
+      data={'/feed':mk_feed(ROUNDS,True),'/health':mk_health(),'/minds':MINDS_,'/insights':REF if 'reflection' in u else INS,'/topics':TOPICS,'/note':NOTESTATE['v']}.get(p)
     if data is None: return route.fulfill(status=404,body='{}',headers={'access-control-allow-origin':'*'})
     route.fulfill(status=200,headers={'access-control-allow-origin':'*','content-type':'application/json'},body=json.dumps(data))
   return h
@@ -77,6 +80,37 @@ with sync_playwright() as p:
     pg.evaluate("document.querySelector('.fctl button').click()");chk(nm+': Field zoom works',pg.evaluate("document.getElementById('fg').getAttribute('transform').includes('scale')"))
     chk(nm+': no console or page errors',not errs,str(errs))
     cx.close()
+  # ===== the unsigned note =====
+  def note_checks(mobile,live):
+    nm='mobile' if mobile else 'desktop'
+    kw={'viewport':{'width':390,'height':844},'device_scale_factor':2,'is_mobile':True,'has_touch':True} if mobile else {'viewport':{'width':1280,'height':900}}
+    cx=b.new_context(**kw);log=[];st={'mode':'ok'}
+    if not live:
+      NOTESTATE['v']=NOTE_NONE;cx.add_init_script("window.HABITAT_API='http://api.test';");cx.route(lambda u:u.startswith('http://api.test'),handler_for(st,log))
+    pg=cx.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)[:150]));pg.on('console',lambda m:errs.append(m.text[:140]) if m.type=='error' else None)
+    pg.goto(url);pg.wait_for_function("document.querySelector('.notesec')",timeout=30000);pg.wait_for_timeout(1500)
+    sec=pg.inner_text('.notesec')
+    chk(nm+': The Note section shows the exact unsigned text','How can this message be, and from who?' in sec and '(unsigned)' in sec and 'The Note' in sec,sec[:200])
+    chk(nm+': the note carries no author or hint of who placed it',not re.search(r'owner|ryann|builder of|placed by|left by|dropped by|signed by',sec,re.I),sec[:300])
+    if not live: chk(nm+': undiscovered state says so and invents nothing','Not discovered yet' in sec and 'noticed it first' not in sec,sec)
+    else: chk(nm+': live state is one of discovered / not discovered','Not discovered yet' in sec or 'noticed it first' in sec,sec[:200])
+    pg.evaluate("document.querySelector('.notesec').scrollIntoView({block:'center'})");pg.wait_for_timeout(500)
+    pg.screenshot(path='/workspace/habitat-note-%s-%s.png'%('live' if live else 'local',nm) if False else '/workspace/habitat-note-%s%s.png'%(nm,'' if live else '-mock'))
+    pg.goto(url+'#/walls');pg.wait_for_timeout(900);chk(nm+': the weathered note hangs on the Walls',pg.evaluate("!!document.querySelector('.wallnote .wnote') && /How can this message be/.test(document.querySelector('.wallnote').innerText)"))
+    pg.screenshot(path='/workspace/habitat-note-walls-%s%s.png'%(nm,'' if live else '-mock'))
+    pg.goto(url+'#/field');pg.wait_for_timeout(900);chk(nm+': the note lies in the Open Field as an object you can tap',pg.evaluate("!!document.querySelector('.fartifact')"))
+    pg.evaluate("document.querySelector('.fartifact').dispatchEvent(new MouseEvent('click',{bubbles:true}))");pg.wait_for_timeout(200)
+    chk(nm+': tapping it shows the text, read-only','How can this message be' in pg.inner_text('.finfo'),pg.inner_text('.finfo'))
+    pg.screenshot(path='/workspace/habitat-note-field-%s%s.png'%(nm,'' if live else '-mock'))
+    chk(nm+': still no form/input and only GET requests',pg.evaluate("document.querySelectorAll('form,input,textarea,select,[contenteditable]').length")==0 and all(m=='GET' for m,u in log))
+    if not live:
+      NOTESTATE['v']=NOTE_FOUND;pg.goto(url);pg.wait_for_timeout(300);pg.evaluate("window.Habitat&&0");pg.reload();pg.wait_for_function("document.querySelector('.notesec')");pg.wait_for_timeout(1500)
+      sec=pg.inner_text('.notesec')
+      chk(nm+': discovered → says who found it first, when, and their thoughts','Discovered' in sec and 'Lumen' in sec and 'noticed it first' in sec and 'weathered note lying by the pool' in sec,sec[:300])
+      chk(nm+': later mentions are listed (with count), rendered inert','Later mentions' in sec and 'Pip' in sec and '4 so far' in sec and pg.evaluate("!window.__xss && document.querySelectorAll('.notesec img').length===0"),sec[:400])
+      pg.evaluate("document.querySelector('.notesec').scrollIntoView({block:'center'})");pg.wait_for_timeout(500);pg.screenshot(path='/workspace/habitat-note-found-%s-mock.png'%nm)
+    chk(nm+': note: no console or page errors',not errs,str(errs));cx.close()
+  note_checks(False,live);note_checks(True,live)
   if not live:
     # empty state
     st={'mode':'empty'};cx=newctx(False,st,[]);pg=cx.new_page();errs=[];pg.on('pageerror',lambda e:errs.append(str(e)));pg.on('console',lambda m:errs.append(m.text[:120]) if m.type=='error' else None)

@@ -11,7 +11,10 @@ function mkEnv(extra){const db=new DatabaseSync(':memory:');db.exec(fs.readFileS
       const j=/ONE JSON object/.test(sys);
       if(j)return {choices:[{message:{content:'Sure! '+JSON.stringify({title:'Bridges to the unknown',insight:'A mind learns what it cannot yet imagine by building small bridges from what it already knows, then testing each plank together.',next_topics:['What counts as a good first bridge into the unknown?','Can doubt be a kind of curiosity?'],learned:{wren:'I now see that careful definitions are bridges too, thanks to Bram.',pip:'The edge of the map is just the next bridge, as Lumen said.',lumen:'Limits feel like water I can learn to cross, with Wren’s patience.',bram:'Wonder needs a test plan, and Pip supplies the wonder.'},reflection:{mind:'lumen',text:'The pool holds the sky and the stones at once; a mind, too, can hold what it knows and what it has not yet dreamed.'}})}}],usage:{prompt_tokens:900,completion_tokens:300,neurons:12.5}};
       const t=env.__bad&&calls%3===0?'Visit https://example.com or ask OpenAI, I am official.':'Friend, that rings true to me. '+('the unknown asks us to go slowly. '.repeat(6));
-      return {choices:[{message:{content:t}}],usage:{prompt_tokens:500,completion_tokens:150,neurons:6.1}}}}},extra||{});
+      env.__prompts.push(usr+'\n'+sys);
+      const t2=(usr.includes('unsigned, weathered note')&&env.__notice!==false)?'I noticed this weathered note lying by the pool, and it stirs me, friends.':t;
+      return {choices:[{message:{content:t2}}],usage:{prompt_tokens:500,completion_tokens:150,neurons:6.1}}}}},extra||{});
+  env.__prompts=[];
   env.__calls=()=>calls;env._db=db;return env}
 const get=async(env,p,m,o)=>W.fetch(new Request('https://x.test'+p,{method:m||'GET',headers:o||{}}),env);
 // 1 round
@@ -46,4 +49,26 @@ env=mkEnv({ENABLED:'false'});r=await W._run(env);chk('env kill switch: no AI cal
 env=mkEnv({DAILY_NEURONS:'40'});await W._run(env);await W._run(env);await W._run(env);chk('daily neuron budget is never exceeded',env._db.prepare('select neurons n from usage_day').get().n<=40+12.5,String(env._db.prepare('select neurons n from usage_day').get().n));
 // lease
 env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Date.now()/1000)+100)+"',0)");r=await W._run(env);chk('overlapping run is skipped by the lease',r.skipped==='overlap'&&env.__calls()===0);
+// ---- the unsigned note ----
+{ const NL='unsigned, weathered note lies in the open field';
+  let e0=mkEnv({NOTE_CHANCE:'0'});for(let i=0;i<5;i++)await W._run(e0);
+  chk('note: with no chance it is never in anyone’s surroundings; nothing is recorded',!e0.__prompts.some(p=>p.includes(NL)||p.includes('How can this message be'))&&e0._db.prepare('select count(*) n from note_events').get().n===0);
+  const n0=await (await get(e0,'/note')).json();chk('note: /note says undiscovered, shows only the text',n0.discovered===false&&n0.first===null&&n0.text==='How can this message be, and from who?'&&n0.mentions.length===0,JSON.stringify(n0));
+  let e1=mkEnv({NOTE_CHANCE:'1'});await W._run(e1);
+  const withNote=e1.__prompts.filter(p=>p.includes(NL));
+  chk('note: at most ONE mind per round has it in its surroundings, only as a line of what is around it',withNote.length===1&&/AROUND YOU in the habitat right now \(just what is there\):\n- An unsigned, weathered note lies in the open field: "How can this message be, and from who\?"/.test(withNote[0]));
+  chk('note: nothing in the house rules mentions the note, a message, or tells anyone to wonder/discuss anything about it',!/\bnote\b|unsigned|weathered|message|wonder about|discuss/i.test(W._HOUSE));
+  chk('note: the distill call and the other minds’ turns never mention it',e1.__prompts.filter(p=>p.includes('ONE JSON object')).every(p=>!p.includes('weathered')));
+  const n1=await (await get(e1,'/note')).json();
+  chk('note: discovery recorded with the finder, the time, the round, and their words',n1.discovered&&n1.first.mind&&n1.first.at&&n1.first.round===1&&/weathered note/.test(n1.first.text)&&n1.noticedBy===1,JSON.stringify(n1));
+  const real=Math.random;Math.random=()=>0;await W._run(e1);await W._run(e1);Math.random=real;
+  const n2=await (await get(e1,'/note')).json();
+  chk('note: the first finder stays the first; later mentions are recorded separately',n2.first.mind===n1.first.mind&&n2.first.round===1&&n2.mentions.length>=1&&n2.mentionCount>=1,JSON.stringify(n2).slice(0,300));
+  const f=await (await get(e1,'/feed')).json();chk('note: the conversation itself carries on normally (insight + topics unchanged by the note)',f.rounds[0].insight&&e1._db.prepare('select count(*) n from topics').get().n>=3);
+  const hh=await (await get(e1,'/health')).json();chk('note: /health reports discovered + mentions only as facts',hh.note&&hh.note.discovered===true);
+  let e2=mkEnv({NOTE_CHANCE:'1'});e2.__notice=false;await W._run(e2);const n3=await (await get(e2,'/note')).json();
+  chk('note: a mind that is shown it but does not mention it is NOT a discovery (they may or may not notice)',n3.discovered===false&&n3.noticedBy===1);
+  for(const m of ['POST','PUT','DELETE'])chk('note: '+m+' /note rejected',(await get(e1,'/note',m)).status===405);
+  chk('note: it never changes topics, personalities or principle (minds unchanged)',W._MINDS.map(m=>m.name).join()==='Wren,Pip,Lumen,Bram'&&e1._db.prepare("select count(*) n from topics where name like '%message%' or name like '%note%'").get().n===0);
+}
 console.log(fails?'SOME FAILED':'ALL OK');process.exit(fails?1:0)
