@@ -18,7 +18,7 @@ body{margin:0;color:var(--tx);font:16px/1.55 var(--font);background:radial-gradi
 .shutbtn:hover,.shutbtn:focus-visible{border-color:rgba(255,255,255,.35);outline:none}
 .shutbtn:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--teal)}
 .shutlight{width:10px;height:10px;border-radius:50%;flex:none;background:#8a93b8;box-shadow:0 0 0 2px rgba(255,255,255,.08)}
-.shutword{color:var(--mut);font-weight:600}
+.shutword{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
 .shutstate{color:var(--tx)}
 .shutbtn.armed{border-color:rgba(255,120,80,.5)}.shutbtn.armed .shutlight{background:#ff6a4a;box-shadow:0 0 0 2px rgba(255,106,74,.25),0 0 10px rgba(255,180,84,.7);animation:shutarmed 1.6s ease-in-out infinite}
 .shutbtn.deact{border-color:rgba(192,132,252,.55)}.shutbtn.deact .shutlight{background:#c084fc;box-shadow:0 0 0 2px rgba(192,132,252,.28),0 0 12px rgba(192,132,252,.8)}
