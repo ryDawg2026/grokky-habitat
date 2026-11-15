@@ -20,7 +20,7 @@ export const SAFE_FONTS = [
 export const PANEL_IDS = ['hero', 'principle', 'now', 'note', 'language', 'featured', 'rooms'];
 export const REQUIRED_PANELS = ['principle', 'note'];
 
-export const LOCKED_RE = /\b(nav(?:igation)?|tabs?|unsigned note|the note\b|principle|observe-only|observe, never interfere|safety switch|kill switch|daily cap|daily caps|core code|worker\.js|ENABLED|DAILY_NEURONS|account id)\b/i;
+export const LOCKED_RE = /\b(nav(?:igation)?|tabs?|unsigned note|the note\b|principle|observe-only|observe, never interfere|safety switch|kill switch|daily cap|daily caps|core code|worker\.js|ENABLED|DAILY_NEURONS|account id|shutdown light|shutdown-light|shutbtn)\b/i;
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 const DENY_APP = /<iframe\b|<object\b|<embed\b|<frame\b|<frameset\b|<base\b|<form\b|<link\b|<meta\b[^>]*http-equiv|<script\b[^>]*\bsrc\s*=|on(?:load|error|click|mouse|key|touch|anim|trans|focus|blur|input|change|submit|reset|drag|wheel|scroll|pointer)\s*=|javascript\s*:|data\s*:\s*text\/html|@import\b|url\s*\(|fetch\s*\(|XMLHttpRequest|WebSocket\s*\(|sendBeacon\s*\(|document\.cookie|localStorage|sessionStorage|indexedDB|parent\.|top\.|opener\.|window\.open\s*\(|import\s*\(|^\s*import\s|eval\s*\(|new\s+Function\s*\(|document\.write\s*\(/i;
@@ -79,7 +79,7 @@ export function validateTheme(patch, prev) {
   if (!patch || typeof patch !== 'object') return { ok: false, reason: 'empty change' };
   const keys = Object.keys(patch);
   if (!keys.length) return { ok: false, reason: 'empty change' };
-  const lockedHit = keys.find(k => LOCKED_RE.test(k) || /^(nav|tabs|note|principle|switch|caps|code|enabled|kill|worker|endpoint)$/i.test(k));
+  const lockedHit = keys.find(k => LOCKED_RE.test(k) || /^(nav|tabs|note|principle|switch|caps|code|enabled|kill|worker|endpoint|shutdown)$/i.test(k));
   if (lockedHit) return { ok: false, reason: 'that part of the habitat cannot be changed' };
   if (JSON.stringify(patch).length > 2000) return { ok: false, reason: 'change too large' };
   if (/url\s*\(|@import|expression\s*\(|javascript\s*:|<script|<\/style/i.test(JSON.stringify(patch))) {

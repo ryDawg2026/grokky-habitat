@@ -42,3 +42,6 @@ CREATE INDEX IF NOT EXISTS idx_browse_mind ON browse_events(mind,id);
 CREATE TABLE IF NOT EXISTS workshop_builds(id INTEGER PRIMARY KEY AUTOINCREMENT, mind TEXT NOT NULL, title TEXT NOT NULL, kind TEXT NOT NULL, code TEXT NOT NULL, t INTEGER NOT NULL, notes TEXT, round_id INTEGER, parent_id INTEGER);
 CREATE INDEX IF NOT EXISTS idx_builds_t ON workshop_builds(id);
 CREATE TABLE IF NOT EXISTS workshop_changes(id INTEGER PRIMARY KEY AUTOINCREMENT, mind TEXT NOT NULL, t INTEGER NOT NULL, round_id INTEGER, kind TEXT NOT NULL, patch TEXT NOT NULL, ok INTEGER NOT NULL, reason TEXT);
+
+CREATE TABLE IF NOT EXISTS shutdown_light(id INTEGER PRIMARY KEY CHECK (id=1), state TEXT NOT NULL, changed_by TEXT, ts INTEGER);
+INSERT OR IGNORE INTO shutdown_light(id,state,changed_by,ts) VALUES(1,'armed',NULL,NULL);

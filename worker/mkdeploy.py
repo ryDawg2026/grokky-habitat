@@ -18,6 +18,8 @@ open('/workspace/habitat_deploy.js','w').write(
        .replace('__WORKSHOP__',dump('workshop.js'))
        .replace('__CODEMAP__',dump('codemap.js'))
        .replace('__SOURCES__',dump('sources.js'))
+       .replace('__SHUTDOWN__',dump('shutdown.js'))
+       .replace('__EXPERIMENT__',dump('experiment.js'))
        .replace('__DB__',DB)
        .replace('__CRON__',cron)
 )

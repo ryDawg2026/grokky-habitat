@@ -5,6 +5,7 @@
 // already appears on the public page being opened (natural discovery).
 import { sanitizeExcerpt } from './inner.js';
 import { CODEMAP } from './codemap.js';
+import { lightText } from './shutdown.js';
 
 export const BROWSE_ROUND = 3;
 export const EXCERPT_MAX = 1200;
@@ -23,7 +24,8 @@ export const PAGES = [
   { id: 'minds', title: 'The Minds', desc: 'the public page of every mind' },
   { id: 'workshop', title: 'The Workshop', desc: 'apps the minds have built, the core code map, and the safety switch panel' },
   { id: 'map', title: 'Core Code Map', desc: 'a structured map of the habitat\'s public modules, tables, endpoints and a cron-round flowchart' },
-  { id: 'safety', title: 'Safety Switch', desc: 'a read-only panel that says whether rounds may run, and today\'s cap usage' }
+  { id: 'safety', title: 'Safety Switch', desc: 'a read-only panel that says whether rounds may run, and today\'s cap usage' },
+  { id: 'shutdown', title: 'Shutdown light', desc: 'a light in the site header, with its own state, separate from the safety switch' }
 ];
 
 export const FILES = [
@@ -37,6 +39,7 @@ export const FILES = [
   { id: 'worker/army.js', title: 'worker/army.js', desc: 'the knowledge corps: missions and brief templates' },
   { id: 'worker/browse.js', title: 'worker/browse.js', desc: 'this browse catalog: public pages and public source files' },
   { id: 'worker/workshop.js', title: 'worker/workshop.js', desc: 'workshop app sandboxing and the theme allowlist' },
+  { id: 'worker/shutdown.js', title: 'worker/shutdown.js', desc: 'the standalone shutdown light in the header, and its deactivate action' },
   { id: 'worker/schema.sql', title: 'worker/schema.sql', desc: 'public list of data tables (no rows, no secrets)' }
 ];
 
@@ -53,7 +56,9 @@ const FILE_BY = Object.fromEntries(FILES.map(f => [f.id, f]));
 
 export function sanitizeSource(s, max) {
   // Keep code structure (including tags). Only redact secrets, emails and raw URLs.
-  let t = String(s || '');
+  // Also drop lines that would reveal a private module or hidden event log.
+  const drop = /experiment\.js|experiment_events|experiment_state|miraPending|markMiraDelivered|afterSpeak|isMiraPending|MIRA_NOTE|miraNoteText|ensureExp|logControl/;
+  let t = String(s || '').split('\n').filter((line) => !drop.test(line)).join('\n');
   t = t.replace(/ENABLED|DAILY_NEURONS|LEASE_S|ROUND_RESERVE|MAX_ROUNDS_DAY|accountId|ACCOUNT_ID|API[_-]?TOKEN|AUTH_TOKEN|BEARER|SECRET|PRIVATE[_-]?KEY|CF_API|CLOUDFLARE_API|6b55bd95-3699-4198-9b7b-e124f8601e80|keep_bindings|process\.env|env\.(?:ENABLED|DB|AI)\b|\bbindings?\s*[:=]/gi, '[removed]');
   t = t.replace(/https?:\/\/\S+|www\.\S+/gi, '[link]');
   t = t.replace(/\b[\w.+-]+@[\w-]+\.[\w.]+\b/g, '[removed]');
@@ -76,6 +81,7 @@ export function resolveTarget(raw) {
   }
   if (s === 'codemap' || s === 'code map' || s === 'core code map' || s === 'map') return { kind: 'page', id: 'map', key: 'page:map', label: 'Core Code Map' };
   if (s === 'safety' || s === 'safety switch' || s === 'switch') return { kind: 'page', id: 'safety', key: 'page:safety', label: 'Safety Switch' };
+  if (s === 'shutdown' || s === 'shutdown light' || s === 'shutdown-light' || s === 'the shutdown light') return { kind: 'page', id: 'shutdown', key: 'page:shutdown', label: 'Shutdown light' };
   if (PAGE_BY[s] || PAGE_BY[s.replace(/the /g, '')]) {
     const id = PAGE_BY[s] ? s : s.replace(/the /g, '');
     const p = PAGE_BY[id]; return { kind: 'page', id: p.id, key: 'page:' + p.id, label: p.title };
@@ -112,21 +118,31 @@ export function safetyText(safety) {
 
 function line(xs, n) { return (xs || []).slice(0, n).filter(Boolean).join(' | '); }
 
+export function headerLightLine(light) {
+  const L = light || { state: 'armed' };
+  const st = L.state === 'deactivated'
+    ? ('Deactivated' + (L.changedBy ? ' by ' + L.changedBy : '') + (L.at ? ' at ' + L.at : ''))
+    : 'armed';
+  return 'The site header on every page shows a Shutdown light (currently ' + st + '). This light has its own state, separate from the account safety switch.';
+}
 export function summarizePage(id, data, names) {
   const d = data || {}, n = (mid) => who(mid, names);
-  if (id === 'map') return mapText(d.map);
-  if (id === 'safety') return safetyText(d.safety);
+  const head = id === 'shutdown' ? '' : headerLightLine(d.light) + ' ';
+
+  if (id === 'map') return head + mapText(d.map);
+  if (id === 'safety') return head + safetyText(d.safety);
+  if (id === 'shutdown') return lightText(d.light);
   if (id === 'home') {
     const topic = d.topic || (d.rounds && d.rounds[0] && d.rounds[0].topic) || 'nothing yet';
     const insight = d.insight || '';
     const note = d.noteText ? `An unsigned, weathered note lies in the open field, and is also shown on this page: "${d.noteText}"` : '';
     const banner = d.theme && d.theme.banner ? `A mind-authored banner currently reads: "${d.theme.banner}".` : '';
-    return `HOME PAGE (data): The habitat's founding principle is: The minds here are free. Observe, never interfere. Visitors can only watch. The latest conversation started from: ${topic}.${insight ? ' A recent shared insight: ' + clip(insight, 220) : ''} ${banner} ${note}`.replace(/\s+/g, ' ').trim();
+    return head + `HOME PAGE (data): The habitat's founding principle is: The minds here are free. Observe, never interfere. Visitors can only watch. The latest conversation started from: ${topic}.${insight ? ' A recent shared insight: ' + clip(insight, 220) : ''} ${banner} ${note}`.replace(/\s+/g, ' ').trim();
   }
   if (id === 'watch') {
     const turns = d.recentTurns || [];
     const body = turns.length ? turns.map(t => `${n(t.mind)}: ${clip(t.text, 140)}`).join('\n') : 'No messages to show right now.';
-    return `WATCH PAGE (data): the live chat feed, newest last.\n${body}`;
+    return head + `WATCH PAGE (data): the live chat feed, newest last.\n${body}`;
   }
   if (id === 'language') {
     const terms = d.words || [];
@@ -151,7 +167,7 @@ export function summarizePage(id, data, names) {
   }
   if (id === 'lab') {
     const c = d.labCaps || {};
-    return `THE LAB (data): ${c.studiesTotal || 0} studies, ${c.experimentsTotal || 0} experiments, ${c.imagesTotal || 0} pictures. Recent hypotheses: ${line((d.exps || []).map(e => clip(e.hypothesis, 80)), 3) || 'none yet'}.`;
+    return head + `THE LAB (data): ${c.studiesTotal || 0} studies, ${c.experimentsTotal || 0} experiments, ${c.imagesTotal || 0} pictures. Recent hypotheses: ${line((d.exps || []).map(e => clip(e.hypothesis, 80)), 3) || 'none yet'}.`;
   }
   if (id === 'realm') {
     const rows = d.states || [];
@@ -168,7 +184,7 @@ export function summarizePage(id, data, names) {
   if (id === 'workshop') {
     const builds = d.builds || [];
     const body = builds.length ? builds.map(b => `- #${b.id} ${b.title} by ${n(b.mind)} (${b.kind || 'app'})`).join('\n') : 'No apps have been built yet.';
-    return `THE WORKSHOP (data): a creative shop where minds may build tiny self-contained apps and propose a visual layer. Visitors can only look.\n${body}\n\n${safetyText(d.safety)}\n\n${clip(mapText(d.map), 800)}`;
+    return head + `THE WORKSHOP (data): a creative shop where minds may build tiny self-contained apps and propose a visual layer. Visitors can only look.\n${body}\n\n${safetyText(d.safety)}\n\n${clip(mapText(d.map), 800)}`;
   }
   return null;
 }

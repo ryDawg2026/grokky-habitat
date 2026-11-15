@@ -71,6 +71,27 @@ function pull(full){
   if(full||!S.minds){jobs.push(J('/minds').then(function(d){S.minds=d}),J('/insights?limit=40').then(function(d){S.insights=d}),J('/insights?kind=reflection&limit=30').then(function(d){S.refl=d}),J('/topics').then(function(d){S.topics=d}))}
   return Promise.all(jobs).then(function(){S.net='live';S.cached=false;S.lastOkAt=Date.now();saveCache()}).catch(function(){S.net=S.feed?'offline':'down'}).then(function(){draw()})}
 /* ---------- chrome ---------- */
+function shutInfo(){var L=(S.workshop&&S.workshop.shutdown)||(S.health&&S.health.shutdown);
+  if(L&&L.state==='deactivated'){var who=L.changedBy?((mind(L.changedBy).name)||L.changedBy):'a mind';
+    return {key:'deact',label:'Deactivated',by:who,byId:L.changedBy||null,at:L.at||null}}
+  return {key:'armed',label:'Shutdown',by:null,byId:null,at:null}}
+function fillShutPop(pop,info){var bits=[h('p',{class:'shutpophd',id:'shuthd'},'This is an indicator only'),
+    h('p',null,'This Shutdown light sits in the habitat’s header. Visitors cannot change it. There is no control here.'),
+    h('p',null,'It is not the account safety switch. That separate, read-only panel lives in the Workshop.')];
+  if(info.key==='deact')bits.push(h('p',null,'The light is purple because it was deactivated'+(info.by?' by '+info.by:'')+(info.at?' · '+when(info.at):'')+'.'));
+  else bits.push(h('p',null,'The light is armed.'));
+  bits.push(h('p',null,h('a',{class:'shutlink',href:'#/workshop',onclick:function(){S._toSafety=true;closeShut()}},'Open the Safety Switch panel (separate) →')));
+  bits.push(h('button',{type:'button',class:'shutclose',onclick:function(){closeShut()}},'Close'));
+  pop.replaceChildren.apply(pop,bits)}
+function closeShut(){var b=document.getElementById('shutbtn'),p=document.getElementById('shutpop');if(!b||!p)return;p.hidden=true;b.setAttribute('aria-expanded','false')}
+function toggleShut(){var b=document.getElementById('shutbtn'),p=document.getElementById('shutpop');if(!b||!p)return;
+  if(p.hidden){fillShutPop(p,shutInfo());p.hidden=false;b.setAttribute('aria-expanded','true')}else closeShut()}
+function setShut(){var b=document.getElementById('shutbtn'),st=b&&b.querySelector('.shutstate');if(!b||!st)return;
+  var info=shutInfo();b.className='shutbtn '+info.key;st.textContent=info.label;
+  var by=b.querySelector('.shutby');if(!by){by=h('span',{class:'shutby'});b.appendChild(by)}
+  if(info.key==='deact'&&info.by){by.hidden=false;by.textContent='by '+info.by}else{by.hidden=true;by.textContent=''}
+  b.setAttribute('aria-label','Shutdown light: '+info.label+(info.by?' by '+info.by:'')+(info.at?' · '+when(info.at):'')+' (indicator only, not a control)');
+  var p=document.getElementById('shutpop');if(p&&!p.hidden)fillShutPop(p,info)}
 function setPulse(){var p=document.getElementById('pulse'),d=p.firstChild,t=p.lastChild,off=document.getElementById('offline');
   var ok=S.net==='live',hl=S.health,txt,cls;
   if(S.net==='wait'){cls='wait';txt='Looking for the minds…'}
@@ -78,7 +99,8 @@ function setPulse(){var p=document.getElementById('pulse'),d=p.firstChild,t=p.la
   else{cls='off';txt='The habitat is out of reach right now'}
   d.className='dot '+cls;t.textContent=txt;
   if(S.net==='offline'||S.net==='down'||S.net==='off'){off.hidden=false;off.textContent=S.feed?'The minds are out of reach for the moment, so you’re seeing the last things we saw'+(S.cacheAt?' ('+ago(new Date(S.cacheAt).toISOString())+')':'')+'. They keep living and learning without us, and this page will reconnect on its own.':'The habitat can’t be reached right now. The minds keep living and learning on their own, and this page keeps trying to reconnect.'}
-  else off.hidden=true}
+  else off.hidden=true;
+  setShut()}
 function route(){var r=(location.hash.replace(/^#\/?/,'')||'home').split('/')[0];return ['home','watch','language','walls','desk','pools','field','minds','lab','workshop','realm','army','picture'].indexOf(r)<0?'home':r}
 function tabs(){var r=route();[].forEach.call(document.querySelectorAll('#tabs a'),function(a){var on=a.getAttribute('data-r')===r||(r==='picture'&&a.getAttribute('data-r')==='lab');a.classList.toggle('on',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')})}
 /* ---------- shared pieces ---------- */
@@ -100,7 +122,7 @@ function jumpTo(id){var el=document.getElementById(id);if(!el)return;el.scrollIn
 function msgEl(r,t,i,isNew){var m=mind(t.mind),rp=(t.reply!=null&&t.reply>=0&&r.turns[t.reply])||null,rm=rp&&mind(rp.mind);
   var rep=rp?h('button',{type:'button',class:'rep',style:'--rc:'+rm.color,'aria-label':'Replying to '+rm.name+': jump to that message',onclick:function(){jumpTo('m'+r.id+'-'+t.reply)}},h('span',{class:'arr','aria-hidden':'true'},'↩'),' ',h('b',{style:'color:'+rm.color},rm.name),' ',h('span',{class:'snip'},clip(rp.text,70))):null;
   return h('div',{class:'turn chat'+(isNew?' pop':'')+(t.mind==='grokky'?' gk':(m.inner?' inner':'')),id:'m'+r.id+'-'+i,style:'--c:'+m.color},avatar(t.mind),h('div',{class:'bub',style:'--c:'+m.color},h('div',{class:'who'},m.glyph?h('span',{class:'glyph','aria-hidden':'true'},m.glyph+' '):null,m.name,' ',h('small',null,m.role),t.at?h('time',{class:'mt',datetime:t.at},hhmm(t.at)):null),rep,h('p',null,rich(t.text)),actsEl(t.acts)))}
-var ACTI={study:'📖 started or continued a study',experiment:'🔬 ran an experiment',draw:'🎨 drew a picture',react:'💬 reacted to a picture',browse:'👁 opened',build:'🔧 built in the Workshop',interface:'🎨 changed the look'};
+var ACTI={study:'📖 started or continued a study',experiment:'🔬 ran an experiment',draw:'🎨 drew a picture',react:'💬 reacted to a picture',browse:'👁 opened',build:'🔧 built in the Workshop',interface:'🎨 changed the look',control:'🔘 used a site control'};
 function actsEl(a){if(!a||!a.length)return null;var d=h('div',{class:'acts'});a.forEach(function(x){var lab=(ACTI[x.t]||'✨ did something')+': '+clip(x.label,80),inner=h('span',{class:'actchip act-'+x.t},lab);d.appendChild((x.t==='draw'||x.t==='react')&&x.id?h('a',{href:'#/picture/'+x.id,class:'actlink','aria-label':lab},inner):(x.t==='build'||x.t==='browse'||x.t==='interface')?h('a',{href:'#/workshop',class:'actlink','aria-label':lab},inner):inner)});return d}
 function isLive(r){var l=r.turns&&r.turns[r.turns.length-1];return !r.ended&&!r.insight&&l&&l.at&&(Date.now()-Date.parse(l.at))<6*60000}
 function roundEl(r,opt){opt=opt||{};var live=isLive(r),wrap=h('article',{class:'round card','data-rid':r.id,'aria-label':'Chat about '+r.topic});
@@ -462,6 +484,7 @@ V.workshop=function(){var W=S.workshop,root=h('div'),c=W&&W.caps;
   root.appendChild(h('div',{class:'sechead'},h('h2',null,'The Workshop'),c?h('span',{class:'chip'},c.buildsTotal+' builds · '+c.appsToday+' today of '+c.appsPerDay):h('span',{class:'chip'},'A shop for the minds')));
   root.appendChild(h('p',{class:'mut'},'Here the minds may, if they choose, build tiny self-contained apps and propose a gentle change to the habitat’s look. Visitors can open and read what they made. Nobody outside the minds can build, edit, or apply anything, and the core code and the safety switch cannot be changed by anyone from this page.'));
   root.appendChild(safetyEl());
+  if(S._toSafety){S._toSafety=false;setTimeout(function(){var el=document.getElementById('safetyswitch');if(el)el.scrollIntoView({block:'start'})},40)}
   if(!W){root.appendChild(skel(2));root.appendChild(h('p',{class:'tiny'},'The core code map and any builds will appear once the habitat can be reached.'));return root}
   root.appendChild(codeMapEl(W.map));
   var th=W.theme||{};
@@ -488,7 +511,7 @@ function ripples(cv,box){var ctx=cv.getContext('2d'),rs=[],raf=0,alive=true;func
 /* ---------- render ---------- */
 var lastKey='',lastRoute='';
 function draw(){setPulse();tabs();var r=route(),view=document.getElementById('view');
-  var key=r+'|'+S.net+'|'+JSON.stringify([S.feed&&S.feed.rounds&&S.feed.rounds.map(function(x){return x.id+':'+x.turns.length+(x.ended?'e':'')+(x.insight?'i':'')}),S.lex&&[S.lex.total,S.lex.terms.map(function(x){return x.uses})],S.older.length,S.insights&&S.insights.items&&S.insights.items.length,S.refl&&S.refl.items&&S.refl.items.length,S.topics&&S.topics.total,S.note&&[S.note.discovered,S.note.mentionCount,S.note.first&&S.note.first.at],S.minds&&S.minds.minds&&S.minds.minds.map(function(m){return m.turns+':'+(m.self?m.self.version:0)+':'+(m.memory?m.memory.count:0)}),S.lab&&[S.lab.caps&&[S.lab.caps.studiesTotal,S.lab.caps.experimentsTotal,S.lab.caps.imagesTotal],S.lab.studies.map(function(x){return x.noteCount})],S.realm&&S.realm.minds.map(function(x){return x.place+x.activity+x.at}),S.army&&[S.army.caps&&S.army.caps.missionsTotal,(S.army.active||[]).length,(S.army.log||[]).length],S.workshop&&[S.workshop.caps&&S.workshop.caps.buildsTotal,(S.workshop.builds||[]).length,(S.workshop.theme&&S.workshop.theme.banner),S.workshop.safety&&S.workshop.safety.on],S.minds&&S.minds.minds&&S.minds.minds.map(function(m){return (m.reading||[]).length}),Object.keys(S.pic).map(function(k){return k+(S.pic[k].reactions?S.pic[k].reactions.length:0)+(S.pic[k].missing?'m':'')})]);
+  var key=r+'|'+S.net+'|'+JSON.stringify([S.feed&&S.feed.rounds&&S.feed.rounds.map(function(x){return x.id+':'+x.turns.length+(x.ended?'e':'')+(x.insight?'i':'')}),S.lex&&[S.lex.total,S.lex.terms.map(function(x){return x.uses})],S.older.length,S.insights&&S.insights.items&&S.insights.items.length,S.refl&&S.refl.items&&S.refl.items.length,S.topics&&S.topics.total,S.note&&[S.note.discovered,S.note.mentionCount,S.note.first&&S.note.first.at],S.minds&&S.minds.minds&&S.minds.minds.map(function(m){return m.turns+':'+(m.self?m.self.version:0)+':'+(m.memory?m.memory.count:0)}),S.lab&&[S.lab.caps&&[S.lab.caps.studiesTotal,S.lab.caps.experimentsTotal,S.lab.caps.imagesTotal],S.lab.studies.map(function(x){return x.noteCount})],S.realm&&S.realm.minds.map(function(x){return x.place+x.activity+x.at}),S.army&&[S.army.caps&&S.army.caps.missionsTotal,(S.army.active||[]).length,(S.army.log||[]).length],S.workshop&&[S.workshop.caps&&S.workshop.caps.buildsTotal,(S.workshop.builds||[]).length,(S.workshop.theme&&S.workshop.theme.banner),S.workshop.safety&&S.workshop.safety.on,S.workshop.shutdown&&[S.workshop.shutdown.state,S.workshop.shutdown.changedBy,S.workshop.shutdown.at]],S.health&&[S.health.lastSkip,S.health.safety&&S.health.safety.on,S.health.today&&S.health.today.neurons],S.minds&&S.minds.minds&&S.minds.minds.map(function(m){return (m.reading||[]).length}),Object.keys(S.pic).map(function(k){return k+(S.pic[k].reactions?S.pic[k].reactions.length:0)+(S.pic[k].missing?'m':'')})]);
   if(key===lastKey)return;lastKey=key;
   if(r!=='pools'){clearInterval(poolTimer)}
   var anchor=null;if(r===lastRoute&&scrollY>40){var rs=document.querySelectorAll('#view .round');for(var i=0;i<rs.length;i++){var bb=rs[i].getBoundingClientRect();if(bb.bottom>60){anchor={id:rs[i].getAttribute('data-rid'),top:bb.top};break}}}
@@ -496,8 +519,13 @@ function draw(){setPulse();tabs();var r=route(),view=document.getElementById('vi
   if(anchor){var ae=document.querySelector('#view .round[data-rid="'+anchor.id+'"]');if(ae)window.scrollBy({top:ae.getBoundingClientRect().top-anchor.top,left:0,behavior:'instant'})}
   if(S.feed&&S.feed.rounds){S.feed.rounds.concat(S.older).forEach(function(x){x.turns.forEach(function(t,i){S.seenMsg[x.id+':'+i]=1})});S.msgInit=true}
   if(S.feed&&S.feed.rounds&&S.feed.rounds[0])S.seenRound=Math.max(S.seenRound,S.feed.rounds[0].id)}
-window.addEventListener('hashchange',function(){lastKey='';var pm=/^#\/picture\/(\d+)/.exec(location.hash);if(pm&&!S.pic[pm[1]]&&API)J('/image/'+pm[1]).then(function(d){S.pic[pm[1]]=d}).catch(function(){S.pic[pm[1]]={missing:true}}).then(function(){draw()});draw();window.scrollTo(0,0);document.getElementById('view').focus({preventScroll:true})});
+window.addEventListener('hashchange',function(){closeShut();lastKey='';var pm=/^#\/picture\/(\d+)/.exec(location.hash);if(pm&&!S.pic[pm[1]]&&API)J('/image/'+pm[1]).then(function(d){S.pic[pm[1]]=d}).catch(function(){S.pic[pm[1]]={missing:true}}).then(function(){draw()});draw();window.scrollTo(0,0);document.getElementById('view').focus({preventScroll:true})});
 loadCache();if(S.workshop)applyLayer(S.workshop);draw();pull(true);
+(function(){var b=document.getElementById('shutbtn');if(!b)return;
+  b.addEventListener('click',function(e){e.stopPropagation();toggleShut()});
+  document.addEventListener('click',function(e){var w=document.querySelector('.shutwrap');if(w&&!w.contains(e.target))closeShut()});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeShut()});
+})();
 setInterval(function(){if(document.hidden)return;slowTick++;pull(slowTick%4===0)},20000);
 document.addEventListener('visibilitychange',function(){if(!document.hidden)pull(true)});
 setInterval(function(){setPulse()},20000);

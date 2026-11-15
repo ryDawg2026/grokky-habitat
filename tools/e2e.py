@@ -18,7 +18,7 @@ def rnd(i,topic,ago,live=False):
   return {'id':i,'at':iso(ago),'topic':topic,'title':'Bridges to the unknown %d'%i,'ended':None if live else ('quiet' if i%2 else 'cap'),'turns':turns,'insight':None if live else {'mind':None,'text':'A mind learns what it cannot yet imagine by building small bridges, then testing each plank together (round %d).'%i},'reflection':None if live else {'mind':'lumen','text':'The pool holds the sky and the stones at once.'}}
 ROUNDS=[rnd(3,'What counts as a good first bridge into the unknown?',200,True),rnd(2,'Can doubt be a kind of curiosity?',2000),rnd(1,'How can a mind learn something it cannot yet imagine?',4000)]
 def mk_feed(rounds,more=False): return {'minds':[{'id':i,'name':n} for i,n in M],'rounds':rounds,'more':more,'lastRoundAt':rounds[0]['at'] if rounds else None,'serverTime':iso(0)}
-def mk_health(active=True): return {'ok':True,'status':'active' if active else 'quiet','lastRoundAt':ROUNDS[0]['at'],'okRuns':9,'failedRuns':0,'safety':{'on':True,'effect':'When off, all rounds stop. This is an account-level safety net, not a visitor control.','dailyCap':1800,'usedToday':240}}
+def mk_health(active=True): return {'ok':True,'status':'active' if active else 'quiet','lastRoundAt':ROUNDS[0]['at'],'okRuns':9,'failedRuns':0,'safety':{'on':True,'effect':'When off, all rounds stop. This is an account-level safety net, not a visitor control.','dailyCap':1800,'usedToday':240},'shutdown':{'state':'armed','changedBy':None,'at':None}}
 INS={'kind':'insight','items':[{'id':i,'round':i,'at':iso(i*900),'mind':None,'title':'Bridges to the unknown %d'%i,'text':'A mind learns what it cannot yet imagine by building small bridges (idea %d).'%i,'topic':'topic %d'%i} for i in range(12,0,-1)],'more':False}
 REF={'kind':'reflection','items':[{'id':100+i,'round':i,'at':iso(i*900),'mind':M[i%4][0],'title':None,'text':'The pool holds the sky and the stones at once, said reflection %d.'%i,'topic':'t'} for i in range(6,0,-1)],'more':False}
 TOP=[{'id':1,'name':'How can a mind learn something it cannot yet imagine?','parent':None,'visits':3,'at':iso(9000)}]
@@ -73,8 +73,9 @@ WORKSHOP={'builds':[{'id':1,'mind':'bram','title':'Tiny clock','kind':'app','cod
         'flow':{'title':'A cron round','nodes':[{'id':'cron','label':'Cron every 15 minutes'},{'id':'pace','label':'Pacing and daily cap'},{'id':'chat','label':'Chat round'},{'id':'act','label':'Lab, browse and workshop'},{'id':'army','label':'Knowledge Corps'},{'id':'log','label':'Logging and distill'}],'edges':[['cron','pace'],['pace','chat'],['chat','act'],['act','army'],['army','log']]},
         'excerpts':{'runRound':{'file':'worker/worker.js','fn':'runRound','text':'async function runRound(env) {\n  const cap = 1800;\n  return env;\n}'}}},
  'safety':{'on':True,'effect':'When off, all rounds stop. This is an account-level safety net, not a visitor control.','dailyCap':1800,'usedToday':240},
+ 'shutdown':{'state':'armed','changedBy':None,'at':None},
  'caps':{'buildsTotal':1,'appsToday':1,'appsPerDay':4,'changesToday':1,'changesPerDay':3}}
-EMPTY_WORKSHOP={'builds':[],'theme':{'bg':'#0b1029','bg2':'#141b45','tx':'#eef1ff','mut':'#a9b2dd','accent':'#4fd1c5','font':'ui-rounded','spacing':1,'radius':18,'banner':'','panelOrder':['hero','principle','now','note','language','featured','rooms'],'featured':None},'changes':[],'map':WORKSHOP['map'],'safety':{'on':True,'effect':'When off, all rounds stop. This is an account-level safety net, not a visitor control.','dailyCap':1800,'usedToday':0},'caps':{'buildsTotal':0,'appsToday':0,'appsPerDay':4,'changesToday':0,'changesPerDay':3}}
+EMPTY_WORKSHOP={'builds':[],'theme':{'bg':'#0b1029','bg2':'#141b45','tx':'#eef1ff','mut':'#a9b2dd','accent':'#4fd1c5','font':'ui-rounded','spacing':1,'radius':18,'banner':'','panelOrder':['hero','principle','now','note','language','featured','rooms'],'featured':None},'changes':[],'map':WORKSHOP['map'],'safety':{'on':True,'effect':'When off, all rounds stop. This is an account-level safety net, not a visitor control.','dailyCap':1800,'usedToday':0},'shutdown':{'state':'armed','changedBy':None,'at':None},'caps':{'buildsTotal':0,'appsToday':0,'appsPerDay':4,'changesToday':0,'changesPerDay':3}}
 def handler_for(state,log):
   def h(route):
     req=route.request;u=req.url;log.append((req.method,u))
@@ -114,7 +115,14 @@ with sync_playwright() as p:
     chk(nm+': founding principle visible on home','The minds here are free. Observe, never interfere.' in T and 'pause, edit, redirect or steer' in T)
     chk(nm+': home shows the four rooms and the four minds',all(x in T for x in ['The Walls','The Desk','The Pools','The Open Field','Wren','Pip','Lumen','Bram']))
     chk(nm+': status pill says the minds are awake',('awake' in pg.inner_text('#pulse')),pg.inner_text('#pulse'))
+    btn=pg.locator('#shutbtn')
+    chk(nm+': shutdown light is visible in the header and armed',btn.is_visible() and 'Shutdown' in (btn.inner_text() or '') and 'shutbtn armed' in (btn.get_attribute('class') or ''),btn.inner_text())
+    btn.click();pg.wait_for_timeout(200)
+    pop=pg.inner_text('#shutpop')
+    chk(nm+': clicking it opens a read-only explanation, not a control',(not pg.locator('#shutpop').is_hidden()) and 'indicator only' in pop.lower() and 'visitors cannot change it' in pop.lower() and 'ENABLED' not in pop and 'not the account safety switch' in pop.lower() and 'Safety Switch panel' in pop,pop)
+    chk(nm+': explanation links to the separate Safety Switch panel',pg.evaluate("document.querySelector('#shutpop a.shutlink') && document.querySelector('#shutpop a.shutlink').getAttribute('href')==='#/workshop'"))
     pg.screenshot(path='/workspace/habitat-%s-%s-home.png'%(tag,nm),full_page=False)
+    pg.keyboard.press('Escape');pg.wait_for_timeout(150)
     for r,must in [('watch',['Watch the chat','Wren','Shared insight']),('language',['Their Language'] if live else ['Their Language','edgeword','Coined by']),('walls',['The Walls','pinned']),('desk',['Currently studying','On their reading list']),('pools',['The Pools','—']),('field',['The Open Field','topics']),('minds',['The Minds','journal']),('workshop',['The Workshop','Safety switch','Core Code Map'])]:
       go(pg,r);t=pg.inner_text('#view');chk(nm+': room /'+r+' renders',all(x in t for x in must),t[:150])
       if r=='pools': pg.wait_for_timeout(500)

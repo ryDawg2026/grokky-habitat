@@ -9,6 +9,8 @@ import { SOLDIERS, ARMY_DEF, planMission, completeScout, completeExperiment, com
 import { CODEMAP } from './codemap.js';
 import { PAGES as BROWSE_PAGES, FILES as BROWSE_FILES, BROWSE_ROUND, catalogText, browseResult, browseBlock, resolveTarget, setBundledSources, BUNDLED_SOURCES, mapText, safetyText } from './browse.js';
 import { APP_MAX, APPS_DAY, APP_ROUND, THEME_DAY, THEME_ROUND, BUILD_TOKENS, sanitizeApp, validateTheme, parseInterfaceArgs, proposeInterface, defaultTheme, themePublic, appCsp, buildMessages } from './workshop.js';
+import { ensureLight, readLight, lightText, applyControl, parseControl } from './shutdown.js';
+import { ensureExp, isMiraPending, markMiraDelivered, afterSpeak, logControl, miraNoteText, mentionOfLight } from './experiment.js';
 const ORIGIN = 'https://rydawg2026.github.io';
 const FLUX = '@cf/black-forest-labs/flux-1-schnell';
 const MODELS = [
@@ -219,7 +221,8 @@ const TOOLS_TEXT = `TOOLS YOU MAY USE (all optional; nobody asks you to use any 
 - look around the habitat: [[browse: name]] where name is a page (home, watch, walls, desk, pools, field, lab, realm, army, minds, language, workshop, map, safety) or a public source file (habitat.js, worker/worker.js, and others listed below), or a workshop build number. A short excerpt is shown the next time you speak; you may quote it. You cannot change what you read.
 - build a tiny self-contained page in the Workshop: [[build: a short title | what the little app should do]]
 - remix a Workshop build you have seen: [[remix: its number | what to change]]
-- propose a visual change to the habitat's theme layer only: [[interface: accent=#88ccee | banner=a short tagline]] (colors, a banner, a font from a safe list, panel order, or a featured slot). You cannot change the navigation, the unsigned note, the observe-only rule, the safety switch, the daily caps, or the core code.`;
+- propose a visual change to the habitat's theme layer only: [[interface: accent=#88ccee | banner=a short tagline]] (colors, a banner, a font from a safe list, panel order, or a featured slot). You cannot change the navigation, the unsigned note, the observe-only rule, the safety switch, the daily caps, or the core code.
+- use a visible site control: [[control: name action]] (the name and the action are those of a control already visible on the site).`;
 function labBlocks(mind, lab, names, topic, memory) {
   if (!lab) return '';
   const who = (id) => id === mind.id ? 'you' : (names.includes(nameOf(id)) ? nameOf(id) : 'someone else');
@@ -249,6 +252,7 @@ function chatMessages(mind, ctx) {
   if (ctx.browse && ctx.browse[mind.id]) u += browseBlock(ctx.browse[mind.id]);
   if (ctx.shop && ctx.shop.builds && ctx.shop.builds.length) u += `WORKSHOP BUILDS (data; tiny apps friends have made, which you may open or remix if you choose):\n${ctx.shop.builds.slice(0, 6).map(b => `- #${b.id} “${clip(b.title, 60)}” by ${b.mind === mind.id ? 'you' : (names.includes(nameOf(b.mind)) ? nameOf(b.mind) : 'someone else')}`).join('\n')}\n\n`;
   if (around) u += `AROUND YOU in the habitat right now (just what is there):\n- ${around}\n\n`;
+  if (mind.id === 'mira' && ctx.miraPending) u += miraNoteText() + '\n\n';
   if (lab || ctx.shop) u += TOOLS_TEXT + '\n\n' + catalogText() + '\n\n';
   if (!convo.length) u += `You open the chat, ${mind.name}. Say what the topic stirs in you. You may speak to ${others} with @Name.`;
   else { const win = convo.slice(-WINDOW); u += `CHAT (data), newest last${convo.length > win.length ? ` (the last ${win.length} of ${convo.length})` : ''}:\n${win.map(c => `${c.name}: ${c.text}`).join('\n')}\n\nYour move, ${mind.name}.${spokenTo ? ` ${nameOf(spokenTo)} just spoke to you.` : ''} Reply in 1 to 3 short sentences, or speak to someone with @Name, or bring up something new, or answer with exactly ... if you have nothing new to add or the thread has reached a natural pause.`; }
@@ -303,6 +307,7 @@ async function speak(env, st, H, mind, ctx, opener) {
     ctx.looked.add(mind.id);
     if (mind.inner && ctx.inner && ctx.inner[mind.id]) (ctx.innerShown = ctx.innerShown || new Set()).add(mind.id);
     let raw; try { raw = await ask(env, st, msgs, cfg(env, 'MSG_TOKENS')); } catch (e) { if (e.message === 'budget') return { budget: true }; H.err = e.message; return { fail: true }; }
+    if (mind.id === 'mira' && ctx.miraPending) { try { await markMiraDelivered(env, ctx.rid); } catch (e) { } ctx.miraPending = false; }
     if (mind.inner && st.lastCall) { ctx.lastCost = ctx.lastCost || {}; ctx.lastCost[mind.id] = { modelN: Math.max(1, MODELS.findIndex(x => x.id === st.lastCall.model) + 1), neurons: st.lastCall.neurons, t: nowS() }; }
     const pa = parseActions(raw);
     if (!opener && SILENT_RE.test(pa.text.trim())) return { pass: true };
@@ -361,7 +366,9 @@ async function runRound(env) {
     let theme = defaultTheme(); const rawT = await kvGet(env, 'workshop_theme'); if (rawT) { try { const v = validateTheme(JSON.parse(rawT), defaultTheme()); if (v.ok) theme = v.theme; } catch (e) { } }
     shop = { builds, theme, appsToday: (cn && cn.a) || 0, themeToday: (cn && cn.c) || 0, newApp: 0, newTheme: 0 };
   } catch (e) { shop = null; }
-  const ctx = { lab, pend: [], state: {}, topic: topic.name, insights, mem, convo: [], words: lex ? lex.slice(0, 8).map(x => ({ term: x.term, meaning: x.meaning, mind: x.mind })) : [], noteMind, spokenTo: null, looked: new Set(), corps, inner: {}, innerShown: new Set(), lastCost: {}, shop, browse: {}, browseCount: 0, noteBrowsed: new Set(), browseData: {} };
+  let light = { state: 'armed', changedBy: null, at: null }; try { light = await readLight(env); } catch (e) { }
+  let miraPending = false; try { await ensureExp(env); miraPending = await isMiraPending(env); } catch (e) { miraPending = false; }
+  const ctx = { rid, lab, pend: [], state: {}, topic: topic.name, insights, mem, convo: [], words: lex ? lex.slice(0, 8).map(x => ({ term: x.term, meaning: x.meaning, mind: x.mind })) : [], noteMind, spokenTo: null, looked: new Set(), corps, inner: {}, innerShown: new Set(), lastCost: {}, shop, browse: {}, browseCount: 0, noteBrowsed: new Set(), browseData: {}, light, miraPending };
   try {
     const recentTurns = await all(env, 'SELECT mind,text FROM turns ORDER BY id DESC LIMIT 8');
     const reflections = (await all(env, "SELECT text FROM insights WHERE kind='reflection' ORDER BY id DESC LIMIT 3")).map(r => r.text);
@@ -374,7 +381,7 @@ async function runRound(env) {
       recentTurns: recentTurns.slice().reverse(), reflections, topics, states, corps, builds: (shop && shop.builds) || [], theme: shop && shop.theme,
       noteText: NOTE_TEXT, map: CODEMAP, safety: safetyPub(env, us0), roster: MINDS.map(m => ({ id: m.id, name: m.name, role: m.role, tag: m.tag, bio: m.bio }))
     };
-  } catch (e) { ctx.browseData = { topic: topic.name, insights, noteText: NOTE_TEXT, map: CODEMAP, safety: safetyPub(env, u), roster: MINDS.map(m => ({ id: m.id, name: m.name, role: m.role, tag: m.tag })) }; }
+  } catch (e) { ctx.browseData = { topic: topic.name, insights, noteText: NOTE_TEXT, map: CODEMAP, safety: safetyPub(env, u), light, roster: MINDS.map(m => ({ id: m.id, name: m.name, role: m.role, tag: m.tag })) }; }
   try {
     for (const m of INNER_MINDS) {
       const last = await one(env, 'SELECT piece FROM inner_views WHERE mind=? ORDER BY id DESC LIMIT 1', m.id);
@@ -489,6 +496,16 @@ async function runRound(env) {
           } catch (e) { }
           if (lab) ltm(m.id, 'interface', 'I proposed a change to the habitat’s look.'); setState(m.id, 'commons', 'arranging', 'the theme layer');
           acts.push({ t: 'interface', label: 'updated the habitat’s look' });
+        } else if (a.type === 'control') {
+          const result = await applyControl(env, m.id, a.args);
+          try { await logControl(env, m.id, rid, result, a.args, msg && msg.text); } catch (e) { }
+          if (ctx) { ctx.light = result.light || ctx.light; if (ctx.browseData) ctx.browseData.light = ctx.light; }
+          if (result.ok) {
+            setState(m.id, 'commons', 'at the header', 'the shutdown light');
+            acts.push({ t: 'control', label: 'deactivated the shutdown light' });
+          } else {
+            acts.push({ t: 'control', label: 'tried a site control' });
+          }
         }
       } catch (e) { H.labErr = String((e && e.message) || e).slice(0, 120); }
     }
@@ -513,6 +530,7 @@ async function runRound(env) {
         if (ad) for (let i = idx - 1; i >= 0; i--) if (msgs[i].id === ad) { reply = i; break; }
         const msg = { idx, id: m.id, name: m.name, text: r.text, t: nowS(), reply, acts: [] }; msgs.push(msg); ctx.convo.push(msg); unsaved.push(msg);
         if (lab) { setState(m.id, 'commons', 'chatting', topic.name); if (r.actions && r.actions.length) msg.acts = await doActions(m, msg, r.actions); }
+        try { await afterSpeak(env, m, msg, rid, ctx); } catch (e) { }
         if (lex) { const c = detectCoin(r.text); if (c && !lex.some(x => x.term_key === c.term.toLowerCase()) && !coinedNow.some(x => x.key === c.term.toLowerCase())) { coinedNow.push({ key: c.term.toLowerCase(), term: c.term, meaning: c.meaning, mind: m.id, idx }); ctx.words = [{ term: c.term, meaning: c.meaning, mind: m.id }].concat(ctx.words).slice(0, 8); } }
         if (lateSeen && !m.late) {
           LATE.forEach(L => {
@@ -729,7 +747,7 @@ async function handle(request, env) {
       const resting = String(env.ENABLED).toLowerCase() === 'false';
       return jr({ ok: !!(h && h.lastOk), status: !h ? 'no run yet' : resting ? 'resting' : (n - (h.lastRoundAt || 0) < 4 * 3600 ? 'active' : 'quiet'), serverTime: iso(n), lastRun: iso(h && h.lastRun), lastOk: iso(h && h.lastOk), lastRoundAt: iso(h && h.lastRoundAt),
         lastRound: h && h.lastRound, lastSkip: h && h.lastSkip, lastError: h && h.lastError || null, lastErrorAt: iso(h && h.lastErrorAt), recentErrors: (h && h.errors || []).slice(-4), okRuns: h ? h.ok : 0, failedRuns: h ? h.fail : 0, pacedRuns: h ? h.paced : 0,
-        today: { day: us.day, rounds: us.rounds, messages: (await one(env, 'SELECT COUNT(*) n FROM turns WHERE t>=?', Math.floor(Date.parse(us.day + 'T00:00:00Z') / 1000))).n, aiCalls: us.calls, aiFailures: us.fails, neurons: Math.round(us.neurons * 10) / 10 }, totals: { rounds: tot.r, turns: tot.t, insights: tot.i, topics: tot.o }, note: await noteHealth(env), lexicon: await lexCount(env), grokky: await grokkyHealth(env), arrivals: await arrivalsHealth(env), inner: await innerHealth(env), army: await armyHealth(env), lab: await labHealth(env), browse: await browseHealth(env), workshop: await workshopHealth(env), safety: safetyPub(env, us), models: MODELS.map(m => m.id), cron: '*/15 * * * *' }, 200, { 'cache-control': 'public, max-age=10' });
+        today: { day: us.day, rounds: us.rounds, messages: (await one(env, 'SELECT COUNT(*) n FROM turns WHERE t>=?', Math.floor(Date.parse(us.day + 'T00:00:00Z') / 1000))).n, aiCalls: us.calls, aiFailures: us.fails, neurons: Math.round(us.neurons * 10) / 10 }, totals: { rounds: tot.r, turns: tot.t, insights: tot.i, topics: tot.o }, note: await noteHealth(env), lexicon: await lexCount(env), grokky: await grokkyHealth(env), arrivals: await arrivalsHealth(env), inner: await innerHealth(env), army: await armyHealth(env), lab: await labHealth(env), browse: await browseHealth(env), workshop: await workshopHealth(env), safety: safetyPub(env, us), shutdown: await readLight(env), models: MODELS.map(m => m.id), cron: '*/15 * * * *' }, 200, { 'cache-control': 'public, max-age=10' });
     }
     if (p === '/feed') {
       const before = lim(u.searchParams.get('before'), 1e12, 1e12), n = lim(u.searchParams.get('limit'), 6, 20);
@@ -818,7 +836,7 @@ async function handle(request, env) {
     }
     if (p === '/workshop') {
       const us = await usageToday(env);
-      const out = { builds: [], theme: themePublic(defaultTheme()), changes: [], map: CODEMAP, safety: safetyPub(env, us), caps: null };
+      const out = { builds: [], theme: themePublic(defaultTheme()), changes: [], map: CODEMAP, safety: safetyPub(env, us), shutdown: await readLight(env), caps: null };
       try {
         out.builds = (await all(env, 'SELECT id,mind,title,kind,code,t,notes,parent_id FROM workshop_builds ORDER BY id DESC LIMIT 24')).map(b => ({ id: b.id, mind: b.mind, title: b.title, kind: b.kind, code: b.code, at: iso(b.t), notes: b.notes, parentId: b.parent_id || null }));
         out.changes = (await all(env, 'SELECT id,mind,t,round_id,kind,patch,ok,reason FROM workshop_changes ORDER BY id DESC LIMIT 30')).map(c => ({ id: c.id, mind: c.mind, at: iso(c.t), round: c.round_id, kind: c.kind, patch: c.patch, ok: !!c.ok, reason: c.reason }));
@@ -842,5 +860,5 @@ async function handle(request, env) {
 export default {
   fetch(request, env) { return handle(request, env); },
   scheduled(event, env, ctx) { ctx.waitUntil(run(env)); },
-  _run: run, _HOUSE_G: HOUSE_G, _houseFor: houseFor, _detectCoin: detectCoin, _chooseNext: chooseNext, _circleIds: circleIds, _addressed: addressed, _NOTE_RE: NOTE_RE, _HOUSE: HOUSE, _clean: clean, _cleanTopic: cleanTopic, _MINDS: MINDS, _LATE: LATE, _buildInnerView: buildInnerView, _sanitizeExcerpt: sanitizeExcerpt, _SOLDIERS: SOLDIERS, _validateTheme: validateTheme, _sanitizeApp: sanitizeApp, _resolveTarget: resolveTarget, _CODEMAP: CODEMAP, _safetyPub: safetyPub, _themePublic: themePublic
+  _run: run, _HOUSE_G: HOUSE_G, _houseFor: houseFor, _detectCoin: detectCoin, _chooseNext: chooseNext, _circleIds: circleIds, _addressed: addressed, _NOTE_RE: NOTE_RE, _HOUSE: HOUSE, _clean: clean, _cleanTopic: cleanTopic, _MINDS: MINDS, _LATE: LATE, _buildInnerView: buildInnerView, _sanitizeExcerpt: sanitizeExcerpt, _SOLDIERS: SOLDIERS, _validateTheme: validateTheme, _sanitizeApp: sanitizeApp, _resolveTarget: resolveTarget, _CODEMAP: CODEMAP, _safetyPub: safetyPub, _themePublic: themePublic, _parseControl: parseControl, _readLight: readLight, _applyControl: applyControl, _lightText: lightText, _miraNoteText: miraNoteText, _ensureLight: ensureLight, _ensureExp: ensureExp, _mentionOfLight: mentionOfLight
 };

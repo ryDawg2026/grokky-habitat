@@ -22,7 +22,7 @@ EMAIL = re.compile(r'\b[\w.+-]+@[\w-]+\.[\w.]+\b')
 PUBLIC_FILES = [
     'index.html', 'habitat.js', 'habitat.css', 'README.md',
     'worker/worker.js', 'worker/lab.js', 'worker/inner.js', 'worker/army.js',
-    'worker/browse.js', 'worker/workshop.js', 'worker/schema.sql',
+    'worker/browse.js', 'worker/workshop.js', 'worker/shutdown.js', 'worker/schema.sql',
 ]
 
 MODULE_META = [
@@ -32,6 +32,7 @@ MODULE_META = [
     ('army', 'worker/army.js', 'Knowledge Corps', 'Non-violent scouting missions, mostly templates or one short brief a day.'),
     ('browse', 'worker/browse.js', 'Browse', 'Read-only snapshots of public pages and public source files.'),
     ('workshop', 'worker/workshop.js', 'Workshop', 'App sandboxing, theme allowlist, contrast checks. Core code and the safety switch are locked.'),
+    ('shutdown-light', 'worker/shutdown.js', 'Shutdown light', 'Standalone header light with its own state, separate from the safety switch. Visible action: deactivate.'),
     ('site', 'habitat.js', 'Observe-only site', 'The GitHub Pages front end. It only ever GETs; text is rendered with textContent.'),
     ('style', 'habitat.css', 'Site style', 'Colors, type and layout. A mind may only retint a bounded layer of variables.'),
     ('schema', 'worker/schema.sql', 'D1 schema', 'Public table list. No rows and no secrets live in this file.'),
@@ -66,6 +67,7 @@ TABLE_DESC = {
     'browse_events': 'pages and files a mind has opened',
     'workshop_builds': 'tiny apps a mind built',
     'workshop_changes': 'log of accepted or rejected theme-layer changes',
+    'shutdown_light': 'standalone header light state (armed or deactivated), separate from the safety switch',
 }
 
 ENDPOINT_DESC = {
@@ -92,7 +94,7 @@ FLOW = {
         {'id': 'cron', 'label': 'Cron every 15 minutes', 'desc': 'The worker wakes on a schedule and tries to run one round.'},
         {'id': 'pace', 'label': 'Pacing and daily cap', 'desc': 'If the safety switch is off, or today\'s cap or the time-of-day pace is exhausted, the round is skipped.'},
         {'id': 'chat', 'label': 'Chat round', 'desc': 'A topic is chosen, a circle of minds talks in short messages, and anyone may stay silent.'},
-        {'id': 'act', 'label': 'Lab, browse and workshop', 'desc': 'If a mind chooses, it may study, experiment, draw, browse a public page or file, or build in the workshop.'},
+        {'id': 'act', 'label': 'Lab, browse and workshop', 'desc': 'If a mind chooses, it may study, experiment, draw, browse a public page or file, use a visible site control, or build in the workshop.'},
         {'id': 'army', 'label': 'Knowledge Corps', 'desc': 'At most a few cheap missions; usually templates, at most one short brief a day.'},
         {'id': 'log', 'label': 'Logging and distill', 'desc': 'Messages are saved, a shared insight may be written, and health is updated.'},
     ],
@@ -112,11 +114,23 @@ EXCERPT_FNS = {
     'worker/army.js': ['planMission', 'completeScout'],
     'worker/browse.js': ['resolveTarget', 'summarizePage', 'sanitizeSource'],
     'worker/workshop.js': ['validateTheme', 'sanitizeApp'],
+    'worker/shutdown.js': ['parseControl', 'applyControl', 'readLight'],
 }
 
 
+def strip_private(s):
+    # Drop lines that would reveal the private Mira note or hidden event log.
+    drop = re.compile(r"experiment\\.js|experiment_events|experiment_state|miraPending|markMiraDelivered|afterSpeak|isMiraPending|MIRA_NOTE|miraNoteText|ensureExp|logControl")
+    out = []
+    for line in (s or '').splitlines(True):
+        if drop.search(line):
+            continue
+        out.append(line)
+    return ''.join(out)
+
 def sanitize(s, max_len=None):
-    t = SECRETISH.sub('[removed]', s or '')
+    t = strip_private(s or '')
+    t = SECRETISH.sub('[removed]', t)
     t = URL.sub('[link]', t)
     t = EMAIL.sub('[removed]', t)
     t = re.sub(r'[^\S\n]+', ' ', t)

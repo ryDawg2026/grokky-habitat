@@ -118,7 +118,7 @@ export function parseSettings(text) {
   return p;
 }
 // A message may end with lines like [[draw: a quiet pond]] . Tags are parsed out of the raw reply before anything is shown.
-const TAG = /\[\[\s*(study|experiment|draw|react|browse|build|remix|interface)\s*:\s*([^\]]{1,800})\]\]/gi;
+const TAG = /\[\[\s*(study|experiment|draw|react|browse|build|remix|interface|control)\s*:\s*([^\]]{1,800})\]\]/gi;
 export function parseActions(raw) {
   const actions = []; const text = String(raw || '').replace(TAG, (_, t, body) => { if (actions.length < 3) actions.push({ type: t.toLowerCase(), args: body.split('|').map(x => x.trim()) }); return ' '; }).replace(/\s+/g, ' ').trim();
   return { text, actions };

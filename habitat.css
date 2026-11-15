@@ -8,10 +8,29 @@ body{margin:0;color:var(--tx);font:16px/1.55 var(--font);background:radial-gradi
 .brand{display:flex;align-items:center;gap:10px;color:var(--tx);text-decoration:none;font-size:20px;letter-spacing:.2px}
 .inf{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--violet));color:#0b1029;font-size:26px;font-weight:700;line-height:1;animation:spinslow 24s linear infinite}
 .brand{white-space:nowrap;flex:none}.bname b{color:var(--teal);font-weight:700}
-.pulse{min-width:0;flex:0 1 auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:999px;max-width:58%}
+.toptools{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;flex:1}
+.pulse{min-width:0;flex:1 1 auto;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut);background:var(--card);border:1px solid var(--line);padding:6px 12px;border-radius:999px;max-width:min(58%,420px)}
 .ptxt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dot{width:9px;height:9px;border-radius:50%;flex:none;background:#8a93b8}.dot.live{background:#35e08c;animation:pl 2.2s infinite}.dot.off{background:#ff6b7a}.dot.wait{background:#e0b335}.dot.quiet{background:#7aa7ff}
 @keyframes pl{0%{box-shadow:0 0 0 0 rgba(53,224,140,.6)}70%{box-shadow:0 0 0 8px rgba(53,224,140,0)}100%{box-shadow:0 0 0 0 rgba(53,224,140,0)}}
+.shutwrap{position:relative;flex:none;z-index:30}
+.shutbtn{display:flex;align-items:center;gap:7px;margin:0;padding:6px 11px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--tx);font:inherit;font-size:12.5px;font-weight:600;letter-spacing:.01em;cursor:pointer;line-height:1.2;white-space:nowrap}
+.shutbtn:hover,.shutbtn:focus-visible{border-color:rgba(255,255,255,.35);outline:none}
+.shutbtn:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--teal)}
+.shutlight{width:10px;height:10px;border-radius:50%;flex:none;background:#8a93b8;box-shadow:0 0 0 2px rgba(255,255,255,.08)}
+.shutword{color:var(--mut);font-weight:600}
+.shutstate{color:var(--tx)}
+.shutbtn.armed{border-color:rgba(255,120,80,.5)}.shutbtn.armed .shutlight{background:#ff6a4a;box-shadow:0 0 0 2px rgba(255,106,74,.25),0 0 10px rgba(255,180,84,.7);animation:shutarmed 1.6s ease-in-out infinite}
+.shutbtn.deact{border-color:rgba(192,132,252,.55)}.shutbtn.deact .shutlight{background:#c084fc;box-shadow:0 0 0 2px rgba(192,132,252,.28),0 0 12px rgba(192,132,252,.8)}
+.shutbtn.wait .shutlight{background:#8a93b8}
+.shutby{color:var(--mut);font-weight:500;font-size:12px}
+@keyframes shutarmed{0%,100%{box-shadow:0 0 0 2px rgba(255,106,74,.2),0 0 6px rgba(255,180,84,.45)}50%{box-shadow:0 0 0 5px rgba(255,106,74,.18),0 0 14px rgba(255,150,70,.9)}}
+.shutpop{position:absolute;right:0;top:calc(100% + 8px);width:min(340px,calc(100vw - 32px));z-index:30;background:#161d48;border:1px solid var(--line);border-radius:16px;padding:14px 16px 12px;box-shadow:0 12px 32px rgba(0,0,0,.4);color:var(--tx);font-size:13.5px;line-height:1.5;font-weight:400}
+.shutpop[hidden]{display:none}
+.shutpophd{margin:0 0 8px;font-size:14px;font-weight:700}
+.shutpop p{margin:0 0 8px}.shutpop p:last-of-type{margin-bottom:10px}
+.shutlink{color:var(--teal);font-weight:600;text-decoration:none}.shutlink:hover{text-decoration:underline}
+.shutclose{display:block;margin:0;padding:5px 0 0;border:0;background:none;color:var(--mut);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline}
 @keyframes spinslow{to{transform:rotate(360deg)}}
 .tabs{display:flex;gap:6px;overflow-x:auto;padding-top:12px;padding-bottom:6px;scrollbar-width:none;position:sticky;top:0;z-index:5;background:linear-gradient(180deg,rgba(11,16,41,.92),rgba(11,16,41,0));backdrop-filter:blur(6px)}
 .tabs::-webkit-scrollbar{display:none}
@@ -91,7 +110,8 @@ p{margin:.4em 0}.mut{color:var(--mut)}.tiny{font-size:12.5px;color:var(--mut)}
 .skel{height:90px;border-radius:16px;background:linear-gradient(90deg,var(--card),var(--card2),var(--card));background-size:200% 100%;animation:sk 1.6s infinite;margin:10px 0}@keyframes sk{to{background-position:-200% 0}}
 a:focus-visible,button:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*,*:before{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
-@media(max-width:520px){.pulse{max-width:60%;padding:5px 10px;font-size:12px}.brand{font-size:16px;gap:7px}.inf{width:32px;height:32px;font-size:22px}.card{padding:14px}}
+@media(max-width:720px){.pulse{max-width:none;flex:1 1 0}.shutword{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}.shutby{max-width:72px;overflow:hidden;text-overflow:ellipsis}}
+@media(max-width:520px){.pulse{padding:5px 10px;font-size:12px}.shutbtn{padding:5px 9px;font-size:12px}.brand{font-size:16px;gap:7px}.inf{width:32px;height:32px;font-size:22px}.card{padding:14px}.shutpop{right:0;left:auto;width:min(340px,calc(100vw - 24px))}}
 
 .wnote{position:relative;display:block;color:#3a2e14;padding:26px 22px 20px;background:radial-gradient(circle at 20% 15%,rgba(120,90,30,.28),transparent 45%),radial-gradient(circle at 85% 80%,rgba(90,60,20,.32),transparent 50%),linear-gradient(160deg,#e6d6a4,#cdb87c 60%,#bda56a);box-shadow:0 14px 28px rgba(0,0,0,.45),inset 0 0 30px rgba(110,80,30,.35);clip-path:polygon(0 3%,5% 0,16% 2%,30% 0,45% 2%,60% 0,78% 2%,92% 0,100% 4%,98% 20%,100% 38%,97% 55%,100% 72%,98% 90%,93% 100%,75% 97%,58% 100%,40% 98%,22% 100%,8% 97%,0 100%,2% 80%,0 62%,3% 45%,0 28%,2% 14%);transform:rotate(-1.6deg);font-family:"Segoe Script","Bradley Hand","Brush Script MT","Comic Sans MS",cursive}
 .wnote .wtxt{margin:0;font-size:clamp(18px,3.2vw,23px);line-height:1.35;text-align:center;color:#33280f;text-shadow:0 1px 0 rgba(255,255,255,.18)}
@@ -207,3 +227,5 @@ a:focus-visible,button:focus-visible{outline:3px solid var(--amber);outline-offs
 .readlist{list-style:none;padding:0;margin:6px 0 0;display:grid;gap:4px;font-size:13px;color:var(--mut)}
 .readlist time{margin-right:8px;color:var(--mut)}
 @media(max-width:640px){.appframe{height:220px}.codeex,.appsrc{max-height:220px}}
+
+.safetypanel{scroll-margin-top:64px}
