@@ -21,17 +21,22 @@ const MODELS = [
 ];
 const DEF = { NOTE_CHANCE: 0.3, DAILY_NEURONS: 1800, ROUND_RESERVE: 120, MSG_TOKENS: 90, DISTILL_TOKENS: 640, MAX_ROUNDS_DAY: 40, LEASE_S: 600, MAX_MSGS: 14, MAX_CALLS: 20, WALL_S: 150, ROUND_NEURONS: 200, IMAGES_DAY: 3, IMG_ROUND: 1, IMAGE_NEURONS: 60, EXPERIMENTS_DAY: 8, EXP_ROUND: 2, STUDY_ROUND: 3, APPS_DAY: 4, APP_ROUND: 1, THEME_DAY: 3, THEME_ROUND: 1, BUILD_TOKENS: 400, BROWSE_ROUND: 3 };
 const WINDOW = 8; // how many of the latest chat lines a mind sees
-const SOLO_DEFAULT = 'mira'; // when no SOLO_ID override is set, only this arrival takes turns
-const CRON = '*/30 * * * *';
+const SOLO_DEFAULT = ''; // solo mode off unless SOLO_ID names one mind
+const TALK_MIND = 'mira'; // the owner talk box still speaks with Mira
+const CRON = '*/15 * * * *';
 const SOLO_MAX_MSGS = 3;
 const cfg = (env, k) => (env[k] !== undefined && env[k] !== '' && !isNaN(Number(env[k]))) ? Number(env[k]) : DEF[k];
 function soloId(env) {
+  let v = '';
   if (env && env.SOLO_ID !== undefined && env.SOLO_ID !== null && String(env.SOLO_ID) !== '') {
-    const v = String(env.SOLO_ID).toLowerCase();
-    if (v === 'off' || v === '0' || v === 'false' || v === '*' || v === 'all') return null;
-    return v;
+    v = String(env.SOLO_ID).toLowerCase();
+  } else if (SOLO_DEFAULT) {
+    v = String(SOLO_DEFAULT).toLowerCase();
+  } else {
+    return null;
   }
-  return SOLO_DEFAULT;
+  if (v === 'off' || v === '0' || v === 'false' || v === '*' || v === 'all') return null;
+  return v;
 }
 function soloMind(env) {
   const id = soloId(env);
@@ -830,7 +835,7 @@ async function handleTalkRoutes(request, env, p) {
     return new Response(null, { status: 204, headers: { 'access-control-allow-methods': allow, 'access-control-allow-headers': 'authorization, content-type, x-talk-key', 'cache-control': 'no-store' } });
   }
   if (!talkAuthorized(request, env)) return talkResponse({ error: 'unauthorized' }, 401);
-  const mind = soloMind(env) || MINDS.find(m => m.id === SOLO_DEFAULT);
+  const mind = soloMind(env) || MINDS.find(m => m.id === TALK_MIND);
   if (!mind) return talkResponse({ error: 'unavailable' }, 503);
   if (p === '/talk/log') {
     if (request.method !== 'GET') return talkResponse({ error: 'method not allowed' }, 405);

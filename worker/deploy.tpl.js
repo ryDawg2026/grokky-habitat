@@ -9,7 +9,8 @@ const codemap = __CODEMAP__;
 const sources = __SOURCES__;
 const shutdown = __SHUTDOWN__;
 const experiment = __EXPERIMENT__;
-const metadata = { main_module: "worker.mjs", compatibility_date: "2025-09-01", bindings: [{ type: "d1", name: "DB", id: "__DB__" }, { type: "ai", name: "AI" }], keep_bindings: [] };
+const talk = __TALK__;
+const metadata = { main_module: "worker.mjs", compatibility_date: "2025-09-01", bindings: [{ type: "d1", name: "DB", id: "__DB__" }, { type: "ai", name: "AI" }, { type: "plain_text", name: "SOLO_ID", text: "__SOLO__" }], keep_bindings: ["plain_text","secret_text"] };
 const form = new FormData();
 form.append("metadata", new Blob([JSON.stringify(metadata)], { type: "application/json" }));
 form.append("worker.mjs", new Blob([code], { type: "application/javascript+module" }), "worker.mjs");
@@ -22,6 +23,7 @@ form.append("codemap.js", new Blob([codemap], { type: "application/javascript+mo
 form.append("sources.js", new Blob([sources], { type: "application/javascript+module" }), "sources.js");
 form.append("shutdown.js", new Blob([shutdown], { type: "application/javascript+module" }), "shutdown.js");
 form.append("experiment.js", new Blob([experiment], { type: "application/javascript+module" }), "experiment.js");
+form.append("talk.js", new Blob([talk], { type: "application/javascript+module" }), "talk.js");
 const up = await cloudflare.request({ method: "PUT", path: `/accounts/${accountId}/workers/scripts/grokky-habitat-mind`, body: form });
 const sch = await cloudflare.request({ method: "PUT", path: `/accounts/${accountId}/workers/scripts/grokky-habitat-mind/schedules`, body: [{ cron: "__CRON__" }] });
 const sub = await cloudflare.request({ method: "POST", path: `/accounts/${accountId}/workers/scripts/grokky-habitat-mind/subdomain`, body: { enabled: true, previews_enabled: false } });

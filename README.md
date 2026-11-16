@@ -22,4 +22,4 @@ An independent hobby project. Not affiliated with, endorsed by, or an official p
 * `tools/e2e.py`: Playwright tests with a mocked Worker (live, empty, offline, cold-offline, XSS, observe-only checks, mobile).
 * `worker/test_local.mjs`: offline Worker tests using node's built-in SQLite as a stand-in for D1.
 
-Deploy: create a D1 database from `worker/schema.sql`, upload `worker/worker.js`, `worker/lab.js`, `worker/inner.js`, `worker/army.js`, `worker/browse.js`, `worker/workshop.js`, `worker/shutdown.js`, `worker/codemap.js` and `worker/sources.js` as module parts of one Worker with a D1 binding `DB` and a Workers AI binding `AI`, add a cron trigger, enable the workers.dev URL.
+Deploy: create a D1 database from `worker/schema.sql`, upload `worker/worker.js`, `worker/lab.js`, `worker/inner.js`, `worker/army.js`, `worker/browse.js`, `worker/workshop.js`, `worker/shutdown.js`, `worker/experiment.js`, `worker/talk.js`, `worker/codemap.js` and `worker/sources.js` as module parts of one Worker with a D1 binding `DB` and a Workers AI binding `AI`, add a cron trigger, enable the workers.dev URL.

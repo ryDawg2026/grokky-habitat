@@ -332,7 +332,7 @@ env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Dat
 }
 
 {
-  chk('soloId defaults to mira and can be turned off',W._soloId({})==='mira'&&W._soloId({SOLO_ID:'off'})===null&&W._soloId({SOLO_ID:'mira'})==='mira');
+  chk('soloId is off by default and can select one mind',W._soloId({})===null&&W._soloId({SOLO_ID:'off'})===null&&W._soloId({SOLO_ID:'mira'})==='mira');
   const es=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000',SOLO_ID:'mira'});
   const r=await W._run(es);
   const turns=es._db.prepare('select mind from turns').all();
@@ -342,7 +342,17 @@ env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Dat
   const prompts=es.__prompts.filter(p=>/You are Mira,/.test(p)&&!/ONE JSON object/.test(p));
   chk('solo: Mira is told she is thinking alone',prompts.length>=1&&prompts.some(p=>/quiet stretch of the Habitat to yourself/.test(p)||/quiet moment to yourself/.test(p)),String(prompts.length));
   const hl=await (await get(es,'/health')).json();
-  chk('solo: health reports mira, army off, cron */30, safety still on',hl.solo&&hl.solo.mind==='mira'&&hl.solo.army===false&&hl.cron==='*/30 * * * *'&&hl.safety&&hl.safety.on===true,JSON.stringify({solo:hl.solo,cron:hl.cron,on:hl.safety&&hl.safety.on}));
+  chk('solo: health reports mira, army off, cron */15, safety still on',hl.solo&&hl.solo.mind==='mira'&&hl.solo.army===false&&hl.cron==='*/15 * * * *'&&hl.safety&&hl.safety.on===true,JSON.stringify({solo:hl.solo,cron:hl.cron,on:hl.safety&&hl.safety.on}));
+}
+
+{
+  const ed=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000',SOLO_ID:'off'});
+  const rd=await W._run(ed);
+  const turnsD=ed._db.prepare('select distinct mind from turns').all().map(x=>x.mind);
+  let armyD=0; try{ armyD=ed._db.prepare('select count(*) n from army_missions').get().n }catch(e){ armyD=0 }
+  const hd=await (await get(ed,'/health')).json();
+  chk('full: health reports solo off, cron */15, safety on',hd.solo===null&&hd.cron==='*/15 * * * *'&&hd.safety&&hd.safety.on===true,JSON.stringify({solo:hd.solo,cron:hd.cron,on:hd.safety&&hd.safety.on}));
+  chk('full: more than one mind can speak and the Army is not paused',rd.ok&&turnsD.length>=2&&rd.H.army!=='paused',JSON.stringify({ok:rd.ok,minds:turnsD,army:rd.H.army,armyN:armyD,H:rd.H}));
 }
 
 {
