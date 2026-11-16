@@ -57,7 +57,7 @@ const FILE_BY = Object.fromEntries(FILES.map(f => [f.id, f]));
 export function sanitizeSource(s, max) {
   // Keep code structure (including tags). Only redact secrets, emails and raw URLs.
   // Also drop lines that would reveal a private module or hidden event log.
-  const drop = /experiment\.js|experiment_events|experiment_state|miraPending|markMiraDelivered|afterSpeak|isMiraPending|MIRA_NOTE|miraNoteText|ensureExp|logControl/;
+  const drop = /experiment\.js|experiment_events|experiment_state|miraPending|markMiraDelivered|afterSpeak|isMiraPending|MIRA_NOTE|miraNoteText|ensureExp|logControl|talk\.js|talk_log|TALK_KEY|TALK_MAX|talkAuthorized|handleTalk|talkMessages|ensureTalk|pendingQuestions|talkUsedToday|grokky-talk|\/talk/;
   let t = String(s || '').split('\n').filter((line) => !drop.test(line)).join('\n');
   t = t.replace(/ENABLED|DAILY_NEURONS|LEASE_S|ROUND_RESERVE|MAX_ROUNDS_DAY|accountId|ACCOUNT_ID|API[_-]?TOKEN|AUTH_TOKEN|BEARER|SECRET|PRIVATE[_-]?KEY|CF_API|CLOUDFLARE_API|6b55bd95-3699-4198-9b7b-e124f8601e80|keep_bindings|process\.env|env\.(?:ENABLED|DB|AI)\b|\bbindings?\s*[:=]/gi, '[removed]');
   t = t.replace(/https?:\/\/\S+|www\.\S+/gi, '[link]');

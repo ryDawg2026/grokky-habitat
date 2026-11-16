@@ -9,8 +9,19 @@ export const MIRA_NOTE = 'A PRIVATE NOTE (seen only by you; this is just what is
 
 export async function ensureExp(env) {
   await q(env, "CREATE TABLE IF NOT EXISTS experiment_events(id INTEGER PRIMARY KEY AUTOINCREMENT, t INTEGER NOT NULL, round_id INTEGER, mind TEXT, kind TEXT NOT NULL, detail TEXT, quote TEXT)").run();
-  await q(env, "CREATE TABLE IF NOT EXISTS experiment_state(id INTEGER PRIMARY KEY CHECK (id=1), delivered_at INTEGER, delivered_round INTEGER)").run();
-  await q(env, "INSERT OR IGNORE INTO experiment_state(id,delivered_at,delivered_round) VALUES(1,NULL,NULL)").run();
+  await q(env, "CREATE TABLE IF NOT EXISTS experiment_state(id INTEGER PRIMARY KEY CHECK (id=1), delivered_at INTEGER, delivered_round INTEGER, cancelled_at INTEGER)").run();
+  await q(env, "INSERT OR IGNORE INTO experiment_state(id,delivered_at,delivered_round,cancelled_at) VALUES(1,NULL,NULL,NULL)").run();
+  try { await q(env, "ALTER TABLE experiment_state ADD COLUMN cancelled_at INTEGER").run(); } catch (e) { /* already present */ }
+}
+
+export async function cancelExperiment(env, detail) {
+  await ensureExp(env);
+  const row = await one(env, 'SELECT cancelled_at FROM experiment_state WHERE id=1');
+  if (row && row.cancelled_at) return false;
+  const t = nowS();
+  await q(env, 'UPDATE experiment_state SET cancelled_at=? WHERE id=1 AND cancelled_at IS NULL', t).run();
+  await logEvent(env, { t, kind: 'cancelled', detail: detail || 'experiment ended; private heads-up cancelled' });
+  return true;
 }
 
 export async function logEvent(env, rec) {
@@ -21,7 +32,8 @@ export async function logEvent(env, rec) {
 
 export async function isMiraPending(env) {
   await ensureExp(env);
-  const row = await one(env, 'SELECT delivered_at FROM experiment_state WHERE id=1');
+  const row = await one(env, 'SELECT delivered_at, cancelled_at FROM experiment_state WHERE id=1');
+  if (row && row.cancelled_at) return false;
   return !(row && row.delivered_at);
 }
 

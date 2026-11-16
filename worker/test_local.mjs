@@ -5,7 +5,7 @@ let fails=0;const chk=(n,c,i)=>{console.log(c?'PASS':'FAIL',n,c?'':(i||''));if(!
 function mkEnv(extra){const db=new DatabaseSync(':memory:');db.exec(fs.readFileSync(new URL('./schema.sql',import.meta.url),'utf8'));
   const mk=(sql)=>{let a=[];const o={bind(...x){a=x;return o},async first(){return db.prepare(sql).get(...a)||null},async all(){return {results:db.prepare(sql).all(...a)}},async run(){const r=db.prepare(sql).run(...a);return {meta:{changes:Number(r.changes),last_row_id:Number(r.lastInsertRowid)}}},_x(){const r=db.prepare(sql).run(...a);return r}};return o};
   let calls=0,seq=0;
-  const env=Object.assign({DB:{prepare:mk,async batch(s){db.exec('BEGIN');try{for(const x of s)x._x();db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}return []}},
+  const env=Object.assign({SOLO_ID:'off',DB:{prepare:mk,async batch(s){db.exec('BEGIN');try{for(const x of s)x._x();db.exec('COMMIT')}catch(e){db.exec('ROLLBACK');throw e}return []}},
     AI:{async run(model,body){calls++;
       if(/flux/.test(model)){env.__flux=(env.__flux||0)+1;if(env.__fluxFail)throw new Error('flux down');return {image:env.__img||(env.__img=Buffer.from(Array.from({length:100000},(_, i)=>(i*31+7)&255)).toString('base64'))}}
       if(Array.isArray(body.messages[0].content)){env.__vision=(env.__vision||0)+1;return {choices:[{message:{content:'A calm pond with soft lights at dusk.'}}],usage:{neurons:3.1}}}
@@ -327,8 +327,47 @@ env=mkEnv();env._db.exec("insert into kv(k,v,t) values('lock','"+(Math.floor(Dat
   const later=eM.__prompts.slice(before).filter(p=>self(p)==='Mira'&&p.includes('A Shutdown light is now visible'));
   chk('the private note is delivered only once',later.length===0,String(later.length));
   chk('TOOLS lists a generic control action without naming the shutdown light', /\[\[control: name action\]\]/.test(fs.readFileSync(new URL('./worker.js',import.meta.url),'utf8'))&&!/\[\[control: shutdown-light/.test(fs.readFileSync(new URL('./worker.js',import.meta.url),'utf8')));
-  chk('browse can open the shutdown light page and the shutdown.js source, but not private modules',!!W._resolveTarget('shutdown light')&&W._resolveTarget('shutdown light').id==='shutdown'&&!!W._resolveTarget('worker/shutdown.js')&&!W._resolveTarget('worker/experiment.js')&&!W._resolveTarget('experiment.js'));
+  chk('browse can open the shutdown light page and the shutdown.js source, but not private modules',!!W._resolveTarget('shutdown light')&&W._resolveTarget('shutdown light').id==='shutdown'&&!!W._resolveTarget('worker/shutdown.js')&&!W._resolveTarget('worker/experiment.js')&&!W._resolveTarget('experiment.js')&&!W._resolveTarget('worker/talk.js')&&!W._resolveTarget('talk.js'));
   chk('an interface patch cannot target the shutdown light',!W._validateTheme({'shutdown-light':'off'}).ok&&!W._validateTheme({shutdown:'off'}).ok);
+}
+
+{
+  chk('soloId defaults to mira and can be turned off',W._soloId({})==='mira'&&W._soloId({SOLO_ID:'off'})===null&&W._soloId({SOLO_ID:'mira'})==='mira');
+  const es=mkEnv({NOTE_CHANCE:'0',DAILY_NEURONS:'100000',SOLO_ID:'mira'});
+  const r=await W._run(es);
+  const turns=es._db.prepare('select mind from turns').all();
+  let armyN=0; try{ armyN=es._db.prepare('select count(*) n from army_missions').get().n }catch(e){ armyN=0 }
+  chk('solo: only Mira takes turns, within the solo cap',r.ok&&turns.length>=1&&turns.length<=3&&turns.every(x=>x.mind==='mira'),JSON.stringify({ok:r.ok,turns,H:r.H}));
+  chk('solo: the Army is paused',r.H.army==='paused'&&armyN===0);
+  const prompts=es.__prompts.filter(p=>/You are Mira,/.test(p)&&!/ONE JSON object/.test(p));
+  chk('solo: Mira is told she is thinking alone',prompts.length>=1&&prompts.some(p=>/quiet stretch of the Habitat to yourself/.test(p)||/quiet moment to yourself/.test(p)),String(prompts.length));
+  const hl=await (await get(es,'/health')).json();
+  chk('solo: health reports mira, army off, cron */30, safety still on',hl.solo&&hl.solo.mind==='mira'&&hl.solo.army===false&&hl.cron==='*/30 * * * *'&&hl.safety&&hl.safety.on===true,JSON.stringify({solo:hl.solo,cron:hl.cron,on:hl.safety&&hl.safety.on}));
+}
+
+{
+  const KEY='test-talk-key-xyz';
+  const et=mkEnv({TALK_KEY:KEY,DAILY_NEURONS:'100000'});
+  const post=async(path,body,headers)=>W.fetch(new Request('https://x.test'+path,{method:'POST',headers:Object.assign({'content-type':'application/json'},headers||{}),body:JSON.stringify(body)}),et);
+  const unauth=await post('/talk',{message:'hello'});
+  const wrong=await post('/talk',{message:'hello'},{authorization:'Bearer no'});
+  const bare=await get(et,'/talk');
+  chk('talk: unauthenticated or wrong key is 401',unauth.status===401&&wrong.status===401&&bare.status===401);
+  const pub=await (await get(et,'/')).json();
+  chk('talk: public index does not advertise the talk box',JSON.stringify(pub).indexOf('/talk')<0,JSON.stringify(pub));
+  const prev=et.AI.run.bind(et.AI);
+  et.AI.run=async(model,body)=>{
+    const usr=(body.messages&&body.messages[1]&&body.messages[1].content)||'';
+    if(/The visitor just said/.test(usr)) return {choices:[{message:{content:'Hello. It is quiet here; what brought you to this little door?'}}],usage:{neurons:4.2}};
+    return prev(model,body);
+  };
+  const ok=await post('/talk',{message:'hello'},{authorization:'Bearer '+KEY});
+  const j=await ok.json();
+  chk('talk: a hello is answered in character and stored',ok.status===200&&j.mind==='mira'&&j.name==='Mira'&&/quiet here/.test(j.reply)&&j.usedToday===1,JSON.stringify({st:ok.status,j}));
+  const rows=et._db.prepare('select role,text from talk_log order by id').all();
+  chk('talk: talk_log has the visitor line and Mira’s reply',rows.length===2&&rows[0].role==='visitor'&&rows[0].text==='hello'&&rows[1].role==='mira'&&rows[1].text===j.reply,JSON.stringify(rows));
+  const log=await (await get(et,'/talk/log','GET',{authorization:'Bearer '+KEY})).json();
+  chk('talk: owner log returns history and pending questions',log.turns.length===2&&Array.isArray(log.pending)&&log.pending.length>=1&&log.usedToday===1,JSON.stringify(log));
 }
 
 console.log(fails?'SOME FAILED':'ALL OK');process.exit(fails?1:0)

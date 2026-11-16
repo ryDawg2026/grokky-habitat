@@ -120,7 +120,7 @@ EXCERPT_FNS = {
 
 def strip_private(s):
     # Drop lines that would reveal the private Mira note or hidden event log.
-    drop = re.compile(r"experiment\\.js|experiment_events|experiment_state|miraPending|markMiraDelivered|afterSpeak|isMiraPending|MIRA_NOTE|miraNoteText|ensureExp|logControl")
+    drop = re.compile(r"experiment\\.js|experiment_events|experiment_state|miraPending|markMiraDelivered|afterSpeak|isMiraPending|MIRA_NOTE|miraNoteText|ensureExp|logControl|talk\\.js|talk_log|TALK_KEY|TALK_MAX|talkAuthorized|handleTalk|talkMessages|ensureTalk|pendingQuestions|talkUsedToday|grokky-talk|/talk")
     out = []
     for line in (s or '').splitlines(True):
         if drop.search(line):
